@@ -1,0 +1,28 @@
+{
+  "name": "basic-registration-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Authenticated registration and profile website",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "test": "node --test",
+    "test:extension": "node --test extension/test/capture.test.js extension/test/pii.test.js extension/test/guard.test.js extension/test/visual.test.js extension/test/manifest.test.js",
+    "check:extension": "node --check extension/service-worker.js && node --check extension/pii.js && node --check extension/guard.js && node --check extension/capture.js && node --check extension/visual.js && node --check extension/visual-overlay.js && node --check extension/content-script.js && node --check extension/sidepanel.js"
+  },
+  "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "bcryptjs": "^3.0.3",
+    "connect-mongo": "^6.0.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.21.2",
+    "express-session": "^1.19.0",
+    "helmet": "^8.0.0",
+    "mongoose": "^8.18.0",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "supertest": "^7.0.0"
+  }
+}

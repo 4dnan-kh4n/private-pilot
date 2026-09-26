@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="360" viewBox="0 0 900 360" role="img" aria-label="Fictional visual OCR test card">
+  <rect width="900" height="360" rx="28" fill="#f7f6f2"/>
+  <rect x="55" y="55" width="790" height="250" rx="20" fill="#ffffff" stroke="#d9ddd7"/>
+  <text x="100" y="120" fill="#60716b" font-family="Arial, sans-serif" font-size="22" font-weight="700">FICTIONAL VISUAL-OCR TEST DATA</text>
+  <text x="100" y="190" fill="#0b1714" font-family="Arial, sans-serif" font-size="34">Full name: Aarav Demo</text>
+  <text x="100" y="255" fill="#0b1714" font-family="Arial, sans-serif" font-size="34">Account: 123456789012</text>
+</svg>

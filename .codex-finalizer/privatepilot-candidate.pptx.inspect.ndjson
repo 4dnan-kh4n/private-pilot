@@ -1,0 +1,155 @@
+{"kind":"deck","id":"pr/whhx06","name":"Deck"}
+{"kind":"layout","layoutId":"239dc38c-a523-4f5e-9cef-cc354b936d35","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"30bf3fb3-e86a-44fa-b371-dc7e2b2a56aa","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/y2ewsq","slide":1,"title":"PRIVACY FOR BROWSER AI","textShapes":7}
+{"kind":"shape","id":"sh/wf6lwzap","slide":1,"bbox":[42,118,620,520]}
+{"kind":"textbox","id":"sh/h0fm54ba","slide":1,"text":"PRIVACY FOR BROWSER AI","textPreview":"PRIVACY FOR BROWSER AI","textChars":22,"textLines":1,"bbox":[72,52,192,32]}
+{"kind":"shape","id":"sh/i1o3y9sv","slide":1,"bbox":[72,165,42.5,47.5]}
+{"kind":"textbox","id":"sh/j2x47etg","slide":1,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[80.75,175,25,25]}
+{"kind":"textbox","id":"sh/436l0za1","slide":1,"text":"PrivatePilot","textPreview":"PrivatePilot","textChars":12,"textLines":1,"bbox":[124,156,700,94]}
+{"kind":"textbox","id":"sh/54fm94b6","slide":1,"text":"A privacy shield for AI-powered browser assistance","textPreview":"A privacy shield for AI-powered browser assistance","textChars":50,"textLines":1,"bbox":[76,270,610,42]}
+{"kind":"shape","id":"sh/y5k3m5sr","slide":1,"bbox":[76,338,444,0]}
+{"kind":"textbox","id":"sh/z6dkvatw","slide":1,"text":"As AI assistants work inside browsers, private information visible on a webpage can become part of AI context.","textPreview":"As AI assistants work inside browsers, private information visible on a webpage can become part of AI context.","textChars":110,"textLines":1,"bbox":[76,368,570,60]}
+{"kind":"textbox","id":"sh/nahwjmpg","slide":1,"text":"SIH 2026  ·  ISRO","textPreview":"SIH 2026  ·  ISRO","textChars":17,"textLines":1,"bbox":[76,552,360,22]}
+{"kind":"textbox","id":"sh/m98fqh8v","slide":1,"text":"SIH26171  ·  On-device Visual Perception for Light-weight Browser Agents","textPreview":"SIH26171  ·  On-device Visual Perception for Light-weight Browser Agents","textChars":72,"textLines":1,"bbox":[76,582,530,28]}
+{"kind":"image","id":"im/2hkzy9gf","slide":1,"name":"","alt":"Abstract teal and burgundy textured spheres","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/y2ewsq","slide":1,"text":"Open with the problem: browser assistants can use what a signed-in user can see. PrivatePilot is the proposed local privacy layer.\nSources:\nSIH26171 problem statement supplied by the presenter."}
+{"kind":"slide","id":"sl/fa00z2","slide":2,"title":"CONTEXT","textShapes":14}
+{"kind":"textbox","id":"sh/x87e9sbe","slide":2,"text":"CONTEXT","textPreview":"CONTEXT","textChars":7,"textLines":1,"bbox":[72,42,118,32]}
+{"kind":"textbox","id":"sh/a5wvedcn","slide":2,"text":"AI is moving from chat to the browser","textPreview":"AI is moving from chat to the browser","textChars":37,"textLines":1,"bbox":[72,92,1030,58]}
+{"kind":"textbox","id":"sh/b6pw7it8","slide":2,"text":"Browser assistants can understand the page a user is viewing.","textPreview":"Browser assistants can understand the page a user is viewing.","textChars":61,"textLines":1,"bbox":[72,152,1040,28]}
+{"kind":"textbox","id":"sh/o3edcnuh","slide":2,"text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[1130,676,72,18]}
+{"kind":"shape","id":"sh/94nu58b2","slide":2,"bbox":[72,214,238,84]}
+{"kind":"textbox","id":"sh/m1wvadcr","slide":2,"text":"Chatbots","textPreview":"Chatbots","textChars":8,"textLines":1,"bbox":[92,231,190,22]}
+{"kind":"textbox","id":"sh/n25c3itw","slide":2,"text":"Answer questions","textPreview":"Answer questions","textChars":16,"textLines":1,"bbox":[92,257,190,18]}
+{"kind":"shape","id":"sh/szido7a1","slide":2,"bbox":[310,256,36,0]}
+{"kind":"shape","id":"sh/t0rehcb6","slide":2,"bbox":[335,252,8,8]}
+{"kind":"shape","id":"sh/h4j2lcbu","slide":2,"bbox":[346,214,238,84]}
+{"kind":"textbox","id":"sh/g3alc7a9","slide":2,"text":"AI copilots","textPreview":"AI copilots","textChars":11,"textLines":1,"bbox":[366,231,190,22]}
+{"kind":"textbox","id":"sh/f2hkj2to","slide":2,"text":"Work beside users","textPreview":"Work beside users","textChars":17,"textLines":1,"bbox":[366,257,190,18]}
+{"kind":"shape","id":"sh/u183axs3","slide":2,"bbox":[584,256,36,0]}
+{"kind":"shape","id":"sh/t0z2hsbi","slide":2,"bbox":[609,252,8,8]}
+{"kind":"shape","id":"sh/szql8nax","slide":2,"bbox":[620,214,238,84]}
+{"kind":"textbox","id":"sh/7yhkfits","slide":2,"text":"AI-first browsers","textPreview":"AI-first browsers","textChars":17,"textLines":1,"bbox":[640,231,190,22]}
+{"kind":"textbox","id":"sh/6d8j6ds7","slide":2,"text":"Understand tabs","textPreview":"Understand tabs","textChars":15,"textLines":1,"bbox":[640,257,190,18]}
+{"kind":"shape","id":"sh/dw3mtwr2","slide":2,"bbox":[858,256,36,0]}
+{"kind":"shape","id":"sh/cvulkrah","slide":2,"bbox":[883,252,8,8]}
+{"kind":"shape","id":"sh/cf25wvid","slide":2,"bbox":[894,214,238,84]}
+{"kind":"textbox","id":"sh/xgbmp0zy","slide":2,"text":"Browser agents","textPreview":"Browser agents","textChars":14,"textLines":1,"bbox":[914,231,190,22]}
+{"kind":"textbox","id":"sh/ad0nul0n","slide":2,"text":"Act on webpages","textPreview":"Act on webpages","textChars":15,"textLines":1,"bbox":[914,257,190,18]}
+{"kind":"textbox","id":"sh/bet4nqh8","slide":2,"text":"Evidence of growing browser-agent adoption","textPreview":"Evidence of growing browser-agent adoption","textChars":42,"textLines":1,"bbox":[72,330,520,24]}
+{"kind":"textbox","id":"sh/pcrmlgz2","slide":2,"text":"Useful assistants read page context. PrivatePilot focuses on the privacy of that context.","textPreview":"Useful assistants read page context. PrivatePilot focuses on the privacy of that context.","textChars":89,"textLines":1,"bbox":[72,616,930,24]}
+{"kind":"table","id":"tb/zmhkfe5k","slide":2,"name":"","rows":5,"cols":4,"preview":"Product | Current availability | Public adoption metric | Source","bbox":[72,366,1136,218]}
+{"kind":"notes","id":"nt/fa00z2","slide":2,"text":"Explain the shift from chat to page-aware browser assistance. The table deliberately reports only public, verifiable availability facts.\nSources:\nClaude in Chrome: https://support.claude.com/en/articles/12012173-get-started-with-claude-in-chrome\nPerplexity Comet: https://www.perplexity.ai/help-center/en/articles/11172798-getting-started-with-comet\nOpenAI ChatGPT agent: https://help.openai.com/en/articles/11752874\nGoogle Project Mariner: https://blog.google/technology/google-deepmind/project-mariner/"}
+{"kind":"slide","id":"sl/kd1onn","slide":3,"title":"LIVE DEMO","textShapes":12}
+{"kind":"textbox","id":"sh/ralgvyxk","slide":3,"text":"LIVE DEMO","textPreview":"LIVE DEMO","textChars":9,"textLines":1,"bbox":[72,42,134,32]}
+{"kind":"textbox","id":"sh/cbuxo3e5","slide":3,"text":"Helpful browser AI","textPreview":"Helpful browser AI","textChars":18,"textLines":1,"bbox":[72,92,1030,58]}
+{"kind":"textbox","id":"sh/dw3yx8fq","slide":3,"text":"A browser assistant can work with the active page without manual copy and paste.","textPreview":"A browser assistant can work with the active page without manual copy and paste.","textChars":80,"textLines":1,"bbox":[72,152,1040,28]}
+{"kind":"textbox","id":"sh/excfqdwb","slide":3,"text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[1130,676,72,18]}
+{"kind":"shape","id":"sh/zy5gzixw","slide":3,"bbox":[72,210,774,398]}
+{"kind":"shape","id":"sh/0zexsneh","slide":3,"bbox":[72,210,774,42]}
+{"kind":"shape","id":"sh/10ny18f2","slide":3,"bbox":[90,227,8,8]}
+{"kind":"shape","id":"sh/u1sfe9w7","slide":3,"bbox":[104,227,8,8]}
+{"kind":"shape","id":"sh/f21wnexs","slide":3,"bbox":[118,227,8,8]}
+{"kind":"textbox","id":"sh/nal03ix8","slide":3,"text":"A long public article","textPreview":"A long public article","textChars":21,"textLines":1,"bbox":[148,222,678,18]}
+{"kind":"textbox","id":"sh/m9cjuxwn","slide":3,"text":"How AI browsers are changing research","textPreview":"How AI browsers are changing research","textChars":37,"textLines":1,"bbox":[110,278,620,34]}
+{"kind":"shape","id":"sh/9wni5sfe","slide":3,"bbox":[110,340,630,0]}
+{"kind":"shape","id":"sh/8ve1wnet","slide":3,"bbox":[110,369,560,0]}
+{"kind":"shape","id":"sh/z6l0zixw","slide":3,"bbox":[110,398,630,0]}
+{"kind":"shape","id":"sh/e5czqdwr","slide":3,"bbox":[110,427,560,0]}
+{"kind":"shape","id":"sh/l83i1sf2","slide":3,"bbox":[110,456,630,0]}
+{"kind":"shape","id":"sh/07uhsneh","slide":3,"bbox":[110,485,560,0]}
+{"kind":"shape","id":"sh/r210vyx0","slide":3,"bbox":[876,210,332,398]}
+{"kind":"textbox","id":"sh/q1szmdgf","slide":3,"text":"COMET ASSISTANT","textPreview":"COMET ASSISTANT","textChars":15,"textLines":1,"bbox":[908,248,210,20]}
+{"kind":"textbox","id":"sh/udsjyt07","slide":3,"text":"Summarise this page in three points.","textPreview":"Summarise this page in three points.","textChars":36,"textLines":1,"bbox":[908,301,246,76]}
+{"kind":"textbox","id":"sh/fy107yhs","slide":3,"text":"The assistant reads the active article and returns a short summary.","textPreview":"The assistant reads the active article and returns a short summary.","textChars":67,"textLines":1,"bbox":[908,405,236,52]}
+{"kind":"textbox","id":"sh/gza103id","slide":3,"text":"ASK COMET","textPreview":"ASK COMET","textChars":9,"textLines":1,"bbox":[908,530,186,32]}
+{"kind":"textbox","id":"sh/h0j298zy","slide":3,"text":"LIVE DEMONSTRATION","textPreview":"LIVE DEMONSTRATION","textChars":18,"textLines":1,"bbox":[72,628,155,32]}
+{"kind":"textbox","id":"sh/21sj2d0j","slide":3,"text":"Open Comet, visit a long public article, then ask for a three-point summary.","textPreview":"Open Comet, visit a long public article, then ask for a three-point summary.","textChars":76,"textLines":1,"bbox":[254,632,780,20]}
+{"kind":"notes","id":"nt/kd1onn","slide":3,"text":"Switch to Comet. Visit a public article and ask the assistant to summarise the page. Return to this slide after the live response.\nSources:\nPerplexity Comet overview: https://www.perplexity.ai/comet"}
+{"kind":"slide","id":"sl/nybara","slide":4,"title":"LIVE DEMO","textShapes":19}
+{"kind":"textbox","id":"sh/9snitsfm","slide":4,"text":"LIVE DEMO","textPreview":"LIVE DEMO","textChars":9,"textLines":1,"bbox":[72,42,134,32]}
+{"kind":"textbox","id":"sh/mpwzyxgv","slide":4,"text":"When helpful context becomes sensitive context","textPreview":"When helpful context becomes sensitive context","textChars":46,"textLines":1,"bbox":[72,92,1030,58]}
+{"kind":"textbox","id":"sh/nq50rixg","slide":4,"text":"The demonstration uses an authenticated dashboard and fictional data only.","textPreview":"The demonstration uses an authenticated dashboard and fictional data only.","textChars":74,"textLines":1,"bbox":[72,152,1040,28]}
+{"kind":"textbox","id":"sh/wve147yx","slide":4,"text":"04","textPreview":"04","textChars":2,"textLines":1,"bbox":[1130,676,72,18]}
+{"kind":"shape","id":"sh/xw7ixcfi","slide":4,"bbox":[72,206,590,410]}
+{"kind":"shape","id":"sh/atwj2xgr","slide":4,"bbox":[72,206,590,42]}
+{"kind":"shape","id":"sh/bu50v2xc","slide":4,"bbox":[90,223,8,8]}
+{"kind":"shape","id":"sh/czuhs3yt","slide":4,"bbox":[104,223,8,8]}
+{"kind":"shape","id":"sh/d03il8fe","slide":4,"bbox":[118,223,8,8]}
+{"kind":"textbox","id":"sh/lcjypsfy","slide":4,"text":"PrivatePilot Testing · Private dashboard","textPreview":"PrivatePilot Testing · Private dashboard","textChars":40,"textLines":1,"bbox":[148,218,494,18]}
+{"kind":"textbox","id":"sh/kbaxgned","slide":4,"text":"Your profile","textPreview":"Your profile","textChars":12,"textLines":1,"bbox":[108,272,300,28]}
+{"kind":"textbox","id":"sh/jq1gnixs","slide":4,"text":"Full name","textPreview":"Full name","textChars":9,"textLines":1,"bbox":[108,331,190,18]}
+{"kind":"shape","id":"sh/ypsfedw7","slide":4,"bbox":[300,321,300,35]}
+{"kind":"textbox","id":"sh/tg3ytsfu","slide":4,"text":"Aarav Demo","textPreview":"Aarav Demo","textChars":10,"textLines":1,"bbox":[315,330,250,18]}
+{"kind":"textbox","id":"sh/8fuxkne9","slide":4,"text":"Age","textPreview":"Age","textChars":3,"textLines":1,"bbox":[108,390,190,18]}
+{"kind":"shape","id":"sh/7elgr2xo","slide":4,"bbox":[300,380,300,35]}
+{"kind":"textbox","id":"sh/6dsfixw3","slide":4,"text":"26","textPreview":"26","textChars":2,"textLines":1,"bbox":[315,389,250,18]}
+{"kind":"textbox","id":"sh/hk3yxcfq","slide":4,"text":"Demo account number","textPreview":"Demo account number","textChars":19,"textLines":1,"bbox":[108,449,190,18]}
+{"kind":"shape","id":"sh/gjuxo7el","slide":4,"bbox":[300,439,300,35]}
+{"kind":"textbox","id":"sh/gn2hkbmh","slide":4,"text":"123456789012","textPreview":"123456789012","textChars":12,"textLines":1,"bbox":[315,448,250,18]}
+{"kind":"textbox","id":"sh/1obitg32","slide":4,"text":"Why should we hire you?","textPreview":"Why should we hire you?","textChars":23,"textLines":1,"bbox":[108,513,260,18]}
+{"kind":"shape","id":"sh/elkzil4r","slide":4,"bbox":[108,542,492,44]}
+{"kind":"textbox","id":"sh/fmt0r6lw","slide":4,"text":"I enjoy solving real problems with thoughtful technology.","textPreview":"I enjoy solving real problems with thoughtful technology.","textChars":57,"textLines":1,"bbox":[122,556,420,16]}
+{"kind":"shape","id":"sh/ormhovmt","slide":4,"bbox":[675,410,73,0]}
+{"kind":"shape","id":"sh/psvix03e","slide":4,"bbox":[730,405,10,10]}
+{"kind":"shape","id":"sh/2p4zml4n","slide":4,"bbox":[778,237,430,347]}
+{"kind":"textbox","id":"sh/nqd0vql8","slide":4,"text":"BROWSER AI ASSISTANT","textPreview":"BROWSER AI ASSISTANT","textChars":20,"textLines":1,"bbox":[814,270,260,18]}
+{"kind":"textbox","id":"sh/4vihcrm9","slide":4,"text":"Help me answer “Why should we hire you?”","textPreview":"Help me answer “Why should we hire you?”","textChars":40,"textLines":1,"bbox":[814,318,324,52]}
+{"kind":"textbox","id":"sh/5wrilw3u","slide":4,"text":"When the assistant receives active-page access, the visible profile can become part of its context.","textPreview":"When the assistant receives active-page access, the visible profile can become part of its context.","textChars":99,"textLines":1,"bbox":[814,398,326,76]}
+{"kind":"textbox","id":"sh/7m1c7y9o","slide":4,"text":"ACTIVE PAGE ACCESS","textPreview":"ACTIVE PAGE ACCESS","textChars":18,"textLines":1,"bbox":[814,506,230,32]}
+{"kind":"textbox","id":"sh/6l8bets3","slide":4,"text":"Demo flow: sign in  •  ask for writing help  •  ask “What name is visible on this page?”","textPreview":"Demo flow: sign in  •  ask for writing help  •  ask “What name is visible on this page?”","textChars":88,"textLines":1,"bbox":[72,642,1120,22]}
+{"kind":"notes","id":"nt/nybara","slide":4,"text":"Register using dummy data, sign in, and ask the browser assistant to help answer the application question. Then ask which name is visible. State clearly: the assistant did not hack the database. It read the signed-in page after the user gave it access.\nSources:\nDemo website: https://private-pilot-testing.vercel.app/"}
+{"kind":"slide","id":"sl/aqahfb","slide":5,"title":"PROPOSED SOLUTION","textShapes":17}
+{"kind":"textbox","id":"sh/ji90fepw","slide":5,"text":"PROPOSED SOLUTION","textPreview":"PROPOSED SOLUTION","textChars":17,"textLines":1,"bbox":[72,42,198,32]}
+{"kind":"textbox","id":"sh/kjihoj6h","slide":5,"text":"PrivatePilot: privacy before AI reasoning","textPreview":"PrivatePilot: privacy before AI reasoning","textChars":41,"textLines":1,"bbox":[72,92,1030,58]}
+{"kind":"textbox","id":"sh/l4riho72","slide":5,"text":"Local analysis creates a safe page representation before cloud reasoning begins.","textPreview":"Local analysis creates a safe page representation before cloud reasoning begins.","textChars":80,"textLines":1,"bbox":[72,152,1040,28]}
+{"kind":"textbox","id":"sh/adgzi9of","slide":5,"text":"05","textPreview":"05","textChars":2,"textLines":1,"bbox":[1130,676,72,18]}
+{"kind":"shape","id":"sh/bepgbep0","slide":5,"bbox":[72,238,180,104]}
+{"kind":"textbox","id":"sh/wfyhkz65","slide":5,"text":"Logged-in\nwebpage","textPreview":"Logged-in | webpage","textChars":17,"textLines":2,"bbox":[88,268,148,52]}
+{"kind":"shape","id":"sh/xg7id47q","slide":5,"bbox":[252,290,40,0]}
+{"kind":"shape","id":"sh/u9kzutoj","slide":5,"bbox":[280,286,8,8]}
+{"kind":"shape","id":"sh/vat0nyp4","slide":5,"bbox":[292,238,180,104]}
+{"kind":"textbox","id":"sh/zmlcje1c","slide":5,"text":"Local PII\ndetection","textPreview":"Local PII | detection","textChars":19,"textLines":2,"bbox":[308,268,148,52]}
+{"kind":"shape","id":"sh/ylcba9kr","slide":5,"bbox":[472,290,40,0]}
+{"kind":"shape","id":"sh/l83uloji","slide":5,"bbox":[500,286,8,8]}
+{"kind":"shape","id":"sh/k7utcj2x","slide":5,"bbox":[512,238,180,104]}
+{"kind":"textbox","id":"sh/7a5cny1o","slide":5,"text":"Redaction and\nreplacement","textPreview":"Redaction and | replacement","textChars":25,"textLines":2,"bbox":[528,268,148,52]}
+{"kind":"shape","id":"sh/m9cbetk3","slide":5,"bbox":[692,290,40,0]}
+{"kind":"shape","id":"sh/9cnupoje","slide":5,"bbox":[720,286,8,8]}
+{"kind":"shape","id":"sh/8betg3i9","slide":5,"bbox":[732,238,180,104]}
+{"kind":"textbox","id":"sh/ve5cry1k","slide":5,"text":"Safe context\nto cloud AI","textPreview":"Safe context | to cloud AI","textChars":24,"textLines":2,"bbox":[748,268,148,52]}
+{"kind":"shape","id":"sh/udwvit0z","slide":5,"bbox":[912,290,40,0]}
+{"kind":"shape","id":"sh/ql0n618j","slide":5,"bbox":[940,286,8,8]}
+{"kind":"shape","id":"sh/rm9oz6p4","slide":5,"bbox":[952,238,180,104]}
+{"kind":"textbox","id":"sh/cn258bqp","slide":5,"text":"Helpful AI\nresponse","textPreview":"Helpful AI | response","textChars":19,"textLines":2,"bbox":[968,268,148,52]}
+{"kind":"textbox","id":"sh/d8b61w7a","slide":5,"text":"Before local protection","textPreview":"Before local protection","textChars":23,"textLines":1,"bbox":[72,390,250,22]}
+{"kind":"textbox","id":"sh/2h0n2h8n","slide":5,"text":"Name: Adnan Khan\nAccount: 123456789012","textPreview":"Name: Adnan Khan | Account: 123456789012","textChars":38,"textLines":2,"bbox":[72,424,365,60]}
+{"kind":"shape","id":"sh/3i9ovmp8","slide":5,"bbox":[470,402,250,92]}
+{"kind":"shape","id":"sh/4ji54rqd","slide":5,"bbox":[500,428,28.9,32.3]}
+{"kind":"textbox","id":"sh/pkr6xw7y","slide":5,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[505.95,434.8,17,17]}
+{"kind":"textbox","id":"sh/mdk7elor","slide":5,"text":"LOCAL REDACTION","textPreview":"LOCAL REDACTION","textChars":15,"textLines":1,"bbox":[544,422,145,20]}
+{"kind":"textbox","id":"sh/nedo7qpc","slide":5,"text":"TLS encrypted channel","textPreview":"TLS encrypted channel","textChars":21,"textLines":1,"bbox":[544,447,150,20]}
+{"kind":"textbox","id":"sh/x8fqxkre","slide":5,"text":"Safe AI context","textPreview":"Safe AI context","textChars":15,"textLines":1,"bbox":[784,390,250,22]}
+{"kind":"textbox","id":"sh/w7694fqt","slide":5,"text":"Name: PERSON_1\nAccount: ACCOUNT_1","textPreview":"Name: PERSON_1 | Account: ACCOUNT_1","textChars":33,"textLines":2,"bbox":[784,424,365,60]}
+{"kind":"textbox","id":"sh/b6x8va98","slide":5,"text":"PrivatePilot preserves AI usefulness while personal values remain inside the browser.","textPreview":"PrivatePilot preserves AI usefulness while personal values remain inside the browser.","textChars":85,"textLines":1,"bbox":[72,572,1120,40]}
+{"kind":"notes","id":"nt/aqahfb","slide":5,"text":"Walk through the proposed architecture. PrivatePilot detects sensitive content locally, replaces identifiers with placeholders, then sends only safe context for external reasoning. Encryption protects the channel; redaction protects the content."}
+{"kind":"slide","id":"sl/nhsidb","slide":6,"title":"LANDSCAPE","textShapes":5}
+{"kind":"textbox","id":"sh/e5wvq9gz","slide":6,"text":"LANDSCAPE","textPreview":"LANDSCAPE","textChars":9,"textLines":1,"bbox":[72,42,134,32]}
+{"kind":"textbox","id":"sh/l8nulofq","slide":6,"text":"Current controls do not solve the complete problem","textPreview":"Current controls do not solve the complete problem","textChars":50,"textLines":1,"bbox":[72,92,1030,58]}
+{"kind":"textbox","id":"sh/07edsjy5","slide":6,"text":"Existing controls address parts of the risk. PrivatePilot focuses on the page context itself.","textPreview":"Existing controls address parts of the risk. PrivatePilot focuses on the page context itself.","textChars":93,"textLines":1,"bbox":[72,152,1040,28]}
+{"kind":"textbox","id":"sh/nupcnyxw","slide":6,"text":"06","textPreview":"06","textChars":2,"textLines":1,"bbox":[1130,676,72,18]}
+{"kind":"textbox","id":"sh/9w7upofm","slide":6,"text":"Existing protections are fragmented.\nPrivatePilot focuses on dynamic private data visible to browser AI agents.","textPreview":"Existing protections are fragmented. | PrivatePilot focuses on dynamic private data visible to browser AI agents.","textChars":111,"textLines":2,"bbox":[116,560,1048,64]}
+{"kind":"table","id":"tb/vq54n6lg","slide":6,"name":"","rows":5,"cols":3,"preview":"Approach | What it protects | Limitation","bbox":[72,220,1136,285]}
+{"kind":"notes","id":"nt/nhsidb","slide":6,"text":"Do not claim that no other solution exists. Explain the gap: browser settings, provider safeguards, and DLP tools cover different parts of the problem. PrivatePilot proposes a lightweight local layer for the AI context.\nSources:\nOpenAI browser page visibility settings: https://help.openai.com/en/articles/12625059-web-browsing-settings-on-chatgpt-atlas\nClaude in Chrome safety information: https://support.claude.com/en/articles/12012173-get-started-with-claude-in-chrome"}
+{"kind":"slide","id":"sl/kkmvt0","slide":7,"title":"✓","textShapes":5}
+{"kind":"shape","id":"sh/ixkvy5ob","slide":7,"bbox":[42,92,640,490]}
+{"kind":"shape","id":"sh/jytcrq5g","slide":7,"bbox":[76,116,39.1,43.7]}
+{"kind":"textbox","id":"sh/wv2dwv65","slide":7,"text":"✓","textPreview":"✓","textChars":1,"textLines":1,"bbox":[84.05,125.2,23,23]}
+{"kind":"textbox","id":"sh/xwbup0nq","slide":7,"text":"PrivatePilot","textPreview":"PrivatePilot","textChars":12,"textLines":1,"bbox":[76,188,690,84]}
+{"kind":"textbox","id":"sh/at0buloz","slide":7,"text":"Helpful AI should not require exposing private context.","textPreview":"Helpful AI should not require exposing private context.","textChars":55,"textLines":1,"bbox":[78,286,700,40]}
+{"kind":"shape","id":"sh/vutcnq5k","slide":7,"bbox":[78,354,394,0]}
+{"kind":"textbox","id":"sh/8ritsb6t","slide":7,"text":"Thank You","textPreview":"Thank You","textChars":9,"textLines":1,"bbox":[78,408,560,72]}
+{"kind":"textbox","id":"sh/9srulgne","slide":7,"text":"QUESTIONS?","textPreview":"QUESTIONS?","textChars":10,"textLines":1,"bbox":[78,510,152,32]}
+{"kind":"image","id":"im/cf2ps3yx","slide":7,"name":"","alt":"Abstract teal and burgundy textured spheres","bbox":[0,0,1280,720]}
+{"kind":"notes","id":"nt/kkmvt0","slide":7,"text":"Close by returning to the central principle: people should be able to use browser AI without needlessly exposing their private context."}

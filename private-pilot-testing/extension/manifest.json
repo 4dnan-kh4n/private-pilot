@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "PrivatePilot",
+  "version": "0.1.0",
+  "description": "A local privacy layer for browser AI demonstrations.",
+  "permissions": ["activeTab", "sidePanel", "scripting"],
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "Open PrivatePilot"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["capture.js", "pii.js", "guard.js", "visual-overlay.js", "content-script.js"],
+      "run_at": "document_start"
+    }
+  ]
+}

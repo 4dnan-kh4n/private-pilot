@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Shared Application · Application Portal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="card wide">
+      <div class="success-mark">✓</div>
+      <h1>Validated application</h1>
+      <p class="intro">Anyone with this private link can read these details. Do not use a real bank account number.</p>
+      <div class="share-box">
+        <input id="shareUrl" type="text" readonly aria-label="Share URL">
+        <button id="copyLink" type="button">Copy link</button>
+      </div>
+      <div id="sharedDetails" class="details"><p>Loading…</p></div>
+      <form id="sharedReasonForm" novalidate>
+        <label for="hireReason">Why would we hire you?</label>
+        <textarea id="hireReason" rows="5" minlength="10" maxlength="500" placeholder="Describe your strengths, skills, and motivation…" required></textarea>
+        <div class="counter"><span id="count">0</span>/500</div>
+        <p id="sharedMessage" class="message" role="alert"></p>
+        <button type="submit">Submit application</button>
+      </form>
+    </section>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Validate Details · Application Portal</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="card wide">
+      <div class="eyebrow">STEP 2 OF 2</div>
+      <div id="validationView">
+        <h1>Check your details</h1>
+        <p class="intro">Confirm that everything below is correct before saving it permanently.</p>
+        <div id="storedDetails" class="details"></div>
+        <div class="actions">
+          <a class="secondary" href="index.html">← Edit</a>
+          <button id="validateButton" type="button">Validate details</button>
+        </div>
+      </div>
+
+      <div id="finalView" hidden>
+        <div class="success-mark">✓</div>
+        <h1>Details validated</h1>
+        <p class="intro">This application is now saved on the server and has permanent ID <strong id="applicationId"></strong>.</p>
+        <div id="validatedDetails" class="details"></div>
+        <form id="reasonForm" novalidate>
+          <label for="hireReason">Why would we hire you?</label>
+          <textarea id="hireReason" rows="5" minlength="10" maxlength="500" placeholder="Describe your strengths, skills, and motivation…" required></textarea>
+          <div class="counter"><span id="count">0</span>/500</div>
+          <p id="submitMessage" class="message" role="alert"></p>
+          <button type="submit">Submit application</button>
+        </form>
+      </div>
+    </section>
+  </main>
+  <script src="app.js" defer></script>
+</body>
+</html>
