@@ -1,6 +1,6 @@
 # PrivatePilot browser extension
 
-PrivatePilot is a local-first Manifest V3 prototype for reviewing webpage context before asking the controlled PrivatePilot assistant. On an ordinary HTTP or HTTPS page, it walks visible text nodes and form controls, masks detected values in the page, and keeps the temporary original-value map in the content script's memory. The map is discarded when the tab or frame closes or when the user selects **Clear**. It is never written to browser storage or logged.
+PrivatePilot is a local-first Manifest V3 prototype for reviewing webpage context before asking the controlled PrivatePilot assistant. On an ordinary HTTP or HTTPS page, it walks visible text nodes and form controls, masks detected values in the page, and keeps the temporary original-value map in the content script's memory. The map is discarded on a full page navigation/reload, when the tab or frame closes, or when the user selects **Clear**. It is never written to browser storage or logged.
 
 The extension sends only its reviewed, redacted text and the user's question to the assistant endpoint configured by `ASSISTANT_ENDPOINT` in `sidepanel.js` (default: `http://localhost:3000/api/privatepilot/assist`). No webpage content, screenshot, OCR result, password, cookie, or placeholder map is sent to that endpoint. The local Node server rejects common unredacted patterns as a second check. Configure the endpoint host in `manifest.json` if you deploy the backend somewhere else.
 
@@ -35,6 +35,7 @@ Heuristic rules cover email addresses; Indian phone numbers; PAN; Aadhaar; IFSC;
 - DOM text from open shadow roots and same-origin frames can be scanned. Closed shadow roots and cross-origin frames the user has not granted are restricted by browser security.
 - The visual scanner uses a local screenshot of the visible tab, so off-screen content is not scanned until it is visible. Browser restrictions or capture failures are shown in the panel. Screenshots and OCR output are not uploaded.
 - Dynamic pages are rescanned after DOM, text, attribute, input, and selection changes with a short debounce. A page can still change between review and an action.
+- Confirmed fill actions still target the demo's three application-answer fields. Generic page scanning and safe-context requests work without those demo controls; generic assistant-directed actions are not implemented.
 - The controlled local demo backend defaults to `localhost:3000`. If changing that endpoint for deployment, update the endpoint constant and matching host permission together. The server-side API key, if configured, stays on the server.
 - A page's own scripts and other extensions are outside this prototype's protection. Use fictional data in demos. Do not use this project as a substitute for a security review or a production privacy product.
 
