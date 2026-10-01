@@ -4,7 +4,8 @@
   "version": "0.1.0",
   "description": "A local privacy layer for browser AI demonstrations.",
   "permissions": ["activeTab", "sidePanel", "scripting"],
-  "host_permissions": ["<all_urls>"],
+  "host_permissions": ["http://localhost:3000/*"],
+  "optional_host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "service-worker.js"
   },
@@ -17,11 +18,8 @@
   "content_security_policy": {
     "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   },
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": ["capture.js", "pii.js", "guard.js", "visual-overlay.js", "content-script.js"],
-      "run_at": "document_start"
-    }
-  ]
+  "web_accessible_resources": [{
+    "resources": ["vendor/tesseract/worker.min.js", "vendor/tesseract/core/*", "vendor/tesseract/lang/*"],
+    "matches": ["http://*/*", "https://*/*"]
+  }]
 }

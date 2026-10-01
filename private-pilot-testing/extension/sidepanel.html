@@ -21,7 +21,7 @@
         <div>
           <p class="status-label">Status</p>
           <h2 id="status">Waiting for an approved page</h2>
-          <p id="siteMessage">Open the PrivatePilot demo site to continue.</p>
+          <p id="siteMessage">Open an ordinary HTTP or HTTPS webpage, then click the PrivatePilot toolbar button to grant access for that site.</p>
         </div>
       </section>
 
@@ -43,7 +43,7 @@
       <section class="notice">
         <p class="eyebrow">Phase 6</p>
         <h2>Local-first by design</h2>
-        <p>PrivatePilot detects and replaces sensitive values locally. The original view never leaves this extension.</p>
+        <p>PrivatePilot reads and redacts page context locally. Only the safe preview can be sent to the configured PrivatePilot assistant.</p>
       </section>
 
       <section class="assistant-card">
@@ -68,7 +68,7 @@
       <button id="analyseButton" type="button" disabled>Review Local Context</button>
       <button id="visualButton" class="secondary-button" type="button" disabled>Run Visual Scan</button>
       <p id="visualStatus" class="helper">Visual scanning is off until you request it.</p>
-      <p class="helper" id="helper">Open an approved demo page. PrivatePilot starts protection when it loads.</p>
+      <p class="helper" id="helper">Use Review Local Context to inspect the local scan. Browser-internal pages are not available to extensions.</p>
     </main>
     <script src="vendor/tesseract/tesseract.min.js"></script>
     <script src="pii.js"></script>
