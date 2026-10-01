@@ -1,6 +1,6 @@
 # PrivatePilot demo
 
-PrivatePilot is a controlled Chrome/Chromium extension demonstration for SIH26171. It locally detects visible private values on the signed-in demo dashboard, replaces them with placeholders, and sends only the safe context to its own assistant.
+PrivatePilot is a controlled Chrome/Chromium extension demonstration for SIH26171. After the user clicks the toolbar button on an ordinary HTTP or HTTPS webpage, it locally scans visible page text and form controls, replaces detected private values with placeholders, and sends only reviewed safe context to its own assistant. The demo dashboard remains available, and the extension can also be tried on other sites after the user grants that origin access.
 
 It does not claim to intercept, alter, or control closed browser assistants such as Claude in Chrome, Comet, or ChatGPT. A normal chatbot also cannot obtain private data merely because it receives a URL.
 
@@ -15,6 +15,8 @@ It does not claim to intercept, alter, or control closed browser assistants such
 - Three application questions stored with the signed-in profile
 - No public sharing links or token endpoints
 - PrivatePilot controlled assistant that receives redacted context only
+- Generic visible-text and form scanning, including open shadow roots, same-origin iframes, and dynamic pages
+- Site access granted by the user for the current origin rather than permanent all-sites access
 - Optional local visual scan for fictional text rendered in images
 - AI action suggestions that require the user's explicit approval before a field is filled
 
@@ -43,13 +45,19 @@ For Vercel, add `MONGODB_URI`, `SESSION_SECRET`, and `NODE_ENV=production` in th
 
 ## Load the extension
 
-1. Start the website with `npm start` and open `http://localhost:3000`.
+1. Start the controlled assistant with `npm start` from this folder. The profile demo uses MongoDB; the assistant route can run in local demo mode without it.
 2. Open `chrome://extensions`, enable **Developer mode**, and select **Load unpacked**.
 3. Choose the [`extension`](extension) folder.
-4. Open the local dashboard, select the PrivatePilot toolbar button, and reload the page once.
-5. The extension runs its local guard on the approved demo hosts. Open the side panel to review its status.
+4. Open an ordinary HTTP or HTTPS webpage and click the PrivatePilot toolbar button. Grant current-site access when Chrome asks. PrivatePilot injects locally and opens the side panel.
+5. Choose **Review Local Context** to inspect the original local preview and safe redacted preview. The current-origin permission lets PrivatePilot reinject after that site's navigation. Revoke it in Chrome extension settings when finished.
 
-The manifest requests Chrome's `<all_urls>` permission so that its local guard starts on normal `http` and `https` webpages. Chrome shows a broad-site-access warning for this permission. Browser-internal pages such as `chrome://`, extension pages, and some protected browser pages remain unavailable by Chrome design.
+PrivatePilot uses `activeTab` and `scripting` to inject after a toolbar click. It requests optional access to the current site origin so it can resume after navigation, and a narrow host permission for the default assistant at `http://localhost:3000`. Cross-origin iframe access requires permission for that frame's origin; same-origin frames are scanned with the page. Browser-internal pages such as `chrome://`, extension pages, and the Chrome Web Store remain unavailable by Chrome design.
+
+## Supported detection and limits
+
+Heuristics cover names and addresses when labelled, email, Indian phone, PAN, Aadhaar, IFSC, labelled bank account numbers (9–18 digits), Luhn-checked payment cards, UPI IDs, labelled PIN codes, dates of birth, and password, OTP, and card security fields. Password fields and fields marked with password, OTP, or card autocomplete are never read into extension messages and are visually masked. Review the side-panel safe preview before sending context.
+
+This prototype cannot guarantee complete detection. Closed shadow roots, ungranted cross-origin frames, inaccessible browser pages, off-screen images, OCR errors, unusual labels, and unknown formats can be missed. Visual OCR uses a local screenshot of the visible tab and bundled Tesseract assets; screenshots and OCR text are not uploaded. The assistant endpoint defaults to `http://localhost:3000/api/privatepilot/assist`; update `ASSISTANT_ENDPOINT` in `extension/sidepanel.js` and the matching manifest host permission together when deploying it elsewhere. See [`extension/README.md`](extension/README.md) for the permission details and limitations.
 
 ## Architecture
 
