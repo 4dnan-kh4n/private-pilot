@@ -4,6 +4,7 @@
   root.PrivatePilotPii = api;
 })(globalThis, function createPiiApi() {
   const PHONE_RE = /(?<!\d)(?:\+?91[\s().-]*|0[\s().-]*)?[6-9](?:[\s().-]*\d){9}(?!\d)/g;
+  const ACCOUNT_LABEL_RE = /\b(?:account\s*(?:number|no\.?|#|a\/c)|a\/c|iban)\b|^(?:(?:savings?|current|salary|bank|sb)\s+)?(?:account|a\s*\/\s*c|acc(?:t)?\.?|iban)(?:\s*(?:number|no\.?|#))?\s*[:\-]?\s*$/i;
   const patterns = [
     ["MOBILE", PHONE_RE],
     ["EMAIL", /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/ig],
@@ -26,7 +27,7 @@
     ["PIN", /\b(?:pin\s*code|postal\s*code|zip\s*code)\b/i],
     ["ADDRESS", /\b(?:address|street address|city)\b/i],
     ["CARD", /\b(?:card\s*(?:number|no\.?|#)|debit card|credit card)\b/i],
-    ["ACCOUNT", /\b(?:account\s*(?:number|no\.?|#|a\/c)|a\/c|iban)\b/i],
+    ["ACCOUNT", ACCOUNT_LABEL_RE],
   ];
   const commonWords = new Set("a an and the hello hi welcome namaste account accounts lists list return returns order orders cart company expand japan spanish english language menu home sign in sign out profile security settings edit update save cancel help contact search your you this that my our customer user name password email mobile phone number pan card address date birth dob pin code postal zip payment amazon shopping today with from have will may mark rose hope grace bill page chip apple orange target prime books deals gift registry shop store".split(" "));
 
@@ -106,6 +107,19 @@
     let safe = String(text);
     const placeholder = (kind, value) => getPlaceholder(kind, value);
     const alreadyPlaceholder = value => /^(?:[A-Z]+_\d+)(?:\s+[A-Z]+_\d+)*$/i.test(String(value).trim());
+    // An explicit account label takes precedence over phone/Aadhaar-shaped digits.
+    const accountLines = safe.split("\n");
+    for (let i = 0; i < accountLines.length; i++) {
+      const inline = accountLines[i].match(/^(\s*.*?)([:\-]\s*|\s+)(\d(?:[ \t-]*\d){8,17})(\s*)$/);
+      if (inline && detect(inline[1], inline[3])?.kind === "ACCOUNT") {
+        accountLines[i] = `${inline[1]}${inline[2]}${placeholder("ACCOUNT", inline[3])}${inline[4]}`;
+      } else if (i + 1 < accountLines.length && detect(accountLines[i], accountLines[i + 1])?.kind === "ACCOUNT") {
+        const raw = accountLines[i + 1].trim();
+        accountLines[i + 1] = accountLines[i + 1].replace(raw, placeholder("ACCOUNT", raw));
+        i++;
+      }
+    }
+    safe = accountLines.join("\n");
     if (allowLabels) {
       const lines = safe.split("\n");
       for (let i = 0; i < lines.length; i++) {

@@ -96,3 +96,22 @@ test("outgoing request never invokes fetch when raw PII is present", async () =>
   assert.equal(safe.options.credentials, "omit");
   assert.doesNotMatch(safe.options.body, /123456789012/);
 });
+
+test("savings-account labels identify the entire number before generic digit patterns", () => {
+  for (const label of ["Account", "Savings Account", "Saving Account Number", "Savings Account No.", "Current Account", "Salary Account", "SB A/c No.", "A / C Number", "Acc.No.", "Acct No.", "Account #", "Demo account number", "Primary account number", "Account a/c"]) {
+    for (const value of ["123456789012", "1234 5678 9012", "919876543210", "200000000009"]) {
+      assert.equal(detect(label, value)?.kind, "ACCOUNT", label);
+    }
+  }
+  for (const label of ["Account balance", "Account & Lists", "Order reference", "Transaction number"]) {
+    assert.equal(detect(label, "123456789012"), null, label);
+  }
+  assert.equal(detect("Savings Account", "12345678"), null);
+  assert.equal(detect("Savings Account", "1234567890123456789"), null);
+});
+
+test("savings-account context redacts inline and separate labels without changing amounts", () => {
+  const safe = redactText("Savings Account 123456789012\nSavings Account:\n1234 5678 9012\nSB A/c No.: 919876543210\nAccount balance: ₹123456789012\nOrder reference: 123456789012", kind => `${kind}_1`);
+  assert.equal(safe, "Savings Account ACCOUNT_1\nSavings Account:\nACCOUNT_1\nSB A/c No.: ACCOUNT_1\nAccount balance: ₹123456789012\nOrder reference: 123456789012");
+  assert.throws(() => assertSafePayload({ safeContext: "Savings Account 123456789012", question: "Help" }), /blocked a request/);
+});

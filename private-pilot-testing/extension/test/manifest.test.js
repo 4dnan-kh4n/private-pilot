@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
+const vm = require("node:vm");
 const extensionRoot = path.join(__dirname, "..");
 const projectRoot = path.join(extensionRoot, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, "manifest.json"), "utf8"));
@@ -31,6 +32,27 @@ test("content-script recovery and side panel use the supported message flow", ()
   assert.match(pii, /credentials:\s*"omit"/);
   assert.match(panel, /sendSafeRequest/);
   assert.doesNotMatch(panel, /new URL\("\/api\/privatepilot\/assist",\s*activeTab\.url\)/);
+});
+
+test("a failed context review shows the safe error and disables stale assistant context", async () => {
+  const elements = new Map();
+  const sandbox = {
+    document: { querySelector(selector) {
+      if (!elements.has(selector)) elements.set(selector, { addEventListener() {} });
+      return elements.get(selector);
+    } },
+    chrome: { tabs: { query() {}, sendMessage: async () => ({ ok: false, error: "PrivatePilot blocked context containing a stored private value." }), onUpdated: { addListener() {} } } }
+  };
+  vm.createContext(sandbox);
+  const panel = fs.readFileSync(path.join(extensionRoot, "sidepanel.js"), "utf8");
+  vm.runInContext(panel, sandbox);
+  const result = vm.runInContext("activeTab = { id: 1 }; latestContext = { safeText: 'old context' }; pendingAction = { type: 'fill_field' }; refreshContext()", sandbox);
+  await assert.rejects(result, /blocked context containing a stored private value/);
+  assert.equal(elements.get("#askButton").disabled, true);
+  assert.equal(elements.get("#captureView").hidden, true);
+  assert.equal(elements.get("#actionControls").hidden, true);
+  assert.equal(vm.runInContext("latestContext", sandbox), undefined);
+  assert.equal(vm.runInContext("pendingAction", sandbox), undefined);
 });
 
 test("extension has no persistent private-value storage or raw-value console logging", () => {

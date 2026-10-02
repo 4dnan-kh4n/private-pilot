@@ -17,11 +17,45 @@
     return true;
   }
 
+  function tableContextFor(element) {
+    const cellSelector = "td, th, [role='cell'], [role='gridcell'], [role='columnheader'], [role='rowheader']";
+    const tableSelector = "table, [role='table'], [role='grid']";
+    const cell = element?.closest?.(cellSelector);
+    if (!cell) return {};
+    const cellsFor = row => row.cells ? [...row.cells] : [...(row.children || [])].filter(child => child.closest?.(cellSelector) === child);
+    const columnHeader = cell => (cell.tagName === "TH" && cell.getAttribute?.("scope") !== "row") || cell.getAttribute?.("role") === "columnheader";
+    const row = cell.closest?.("tr, [role='row']");
+    const table = row?.closest?.(tableSelector);
+    const explicitHeader = cell.tagName === "TH" || /^(?:columnheader|rowheader)$/.test(cell.getAttribute?.("role") || "");
+    if (!row || !table) return { isHeader: explicitHeader };
+    const rows = [...(table.rows || table.querySelectorAll("tr, [role='row']"))].filter(row => row.closest?.(tableSelector) === table);
+    const headerRow = candidate => {
+      const cells = cellsFor(candidate);
+      if (candidate.closest?.("thead") || (cells.length && cells.every(columnHeader))) return true;
+      // Some bank tables use TD for every heading. Require a short, nonnumeric label row.
+      if (candidate !== rows[0] || cells.length < 2 || cells.some(cell => cell.querySelector?.("input, textarea, select"))) return false;
+      const texts = cells.map(cell => cell.textContent.trim());
+      return texts.every(text => text && !/\d/.test(text) && text.split(/\s+/).length <= 5)
+        && texts.filter(text => /\b(?:name|number|no|account|type|balance|withdrawable|currency|email|phone|mobile|address|ifsc|date|status)\b/i.test(text)).length >= 2;
+    };
+    if (cell.getAttribute?.("role") === "columnheader" || headerRow(row)) return { isHeader: true };
+    const headings = rows.slice(0, rows.indexOf(row)).filter(headerRow).at(-1);
+    if (!headings) return { isHeader: explicitHeader };
+    const cells = cellsFor(row);
+    const headers = cellsFor(headings);
+    // ponytail: flat columns only; merged cells need a span-aware grid before matching.
+    if ([...cells, ...headers].some(cell => Number(cell.colSpan || 1) > 1 || Number(cell.rowSpan || 1) > 1)) return {};
+    const column = cell.getAttribute?.("aria-colindex");
+    const header = column ? headers.find(header => header.getAttribute?.("aria-colindex") === column) : headers[cells.indexOf(cell)];
+    return { label: header?.textContent.trim() || "" };
+  }
+
   function labelFor(field) {
     const labels = [...(field.labels || [])].map(item => item.textContent).filter(Boolean);
     const wrapping = field.closest?.("label")?.textContent;
     const ariaLabelledBy = field.getAttribute?.("aria-labelledby")?.split(/\s+/).map(id => field.ownerDocument?.getElementById?.(id)?.textContent).filter(Boolean).join(" ");
     const aria = field.getAttribute?.("aria-label") || ariaLabelledBy;
+    const tableLabel = tableContextFor(field).label;
     const siblings = [...(field.parentElement?.children || [])];
     const position = siblings.indexOf(field);
     const sibling = field.previousElementSibling || siblings.slice(0, position).at(-1) || field.parentElement?.previousElementSibling;
@@ -34,7 +68,7 @@
     const cellText = cellSibling?.textContent || cellSibling?.innerText || "";
     const cellLabel = cellText.trim().split(/\s+/).length <= 5 && (/[:\-]\s*$/.test(cellText.trim()) || ["DT", "TH"].includes(String(cellSibling?.tagName || "").toUpperCase()));
     const adjacent = semanticSibling || shortLabel ? siblingText : cellLabel ? cellText : "";
-    return [labels[0], wrapping, aria, field.getAttribute?.("placeholder"), adjacent]
+    return [labels[0], wrapping, aria, tableLabel, field.getAttribute?.("placeholder"), adjacent]
       .find(value => value && value.trim() && value.trim().split(/\s+/).length <= 5)?.trim() || "Unlabelled field";
   }
 
@@ -126,5 +160,5 @@
     field.style.webkitTextSecurity = originalTextSecurity.get(field);
     originalTextSecurity.delete(field);
   }
-  return { capture, isVisible, labelFor, isNeverRead, isLabelingRestricted, walkRoots, restoreMask };
+  return { capture, isVisible, labelFor, tableContextFor, isNeverRead, isLabelingRestricted, walkRoots, restoreMask };
 });

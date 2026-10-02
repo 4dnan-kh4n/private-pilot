@@ -4,6 +4,7 @@
   root.PrivatePilotGuard = api;
 })(globalThis, function createGuardApi() {
   const originals = new Map();
+  const redactedNodes = new Map();
   const fields = new Map();
   const fieldRecords = new Map();
   const overrides = new Map();
@@ -41,8 +42,9 @@
     placeholderToValue.set(placeholder, value);
     return placeholder;
   }
-  function saveText(node, raw) {
-    if (!originals.has(node)) originals.set(node, raw);
+  function saveText(node, raw, safe) {
+    originals.set(node, raw);
+    redactedNodes.set(node, safe);
   }
   function redactedText(raw, allowLabels = true) {
     return PrivatePilotPii.redactText(raw, (kind, value) => placeholderFor(kind, value), { allowLabels, personParts, personNames });
@@ -76,13 +78,23 @@
     }
     function processText(node) {
       const raw = node.nodeValue || "";
-      if (originals.has(node)) return;
+      const table = PrivatePilotCapture.tableContextFor(node.parentElement);
+      if (table.isHeader) return;
+      if (originals.has(node) && raw === redactedNodes.get(node)) return;
+      // A site can reuse a text node when switching accounts or refreshing a balance.
+      originals.delete(node); redactedNodes.delete(node);
+      const parent = node.parentElement;
+      const sibling = parent?.previousElementSibling;
+      const siblingLabel = sibling?.textContent || sibling?.innerText || "";
+      let preceding = node.previousSibling;
+      while (preceding?.nodeType === 3 && !String(preceding.nodeValue || "").trim()) preceding = preceding.previousSibling;
+      const precedingLabel = preceding?.textContent || preceding?.nodeValue || "";
+      const account = [precedingLabel, siblingLabel].some(label => label && PrivatePilotPii.detect(label, raw)?.kind === "ACCOUNT");
+      const tableDetection = table.label ? PrivatePilotPii.detect(table.label, raw) : null;
       const restricted = PrivatePilotCapture.isLabelingRestricted(node.parentElement);
-      let safe = redactedText(raw, !restricted);
-      if (safe === raw) {
-        const parent = node.parentElement;
-        const sibling = parent?.previousElementSibling;
-        const siblingLabel = sibling?.textContent || sibling?.innerText || "";
+      let safe = tableDetection ? raw.replace(raw.trim(), tableDetection.neverRead ? "[HIDDEN]" : placeholderFor(tableDetection.kind, raw.trim()))
+        : account ? raw.replace(raw.trim(), placeholderFor("ACCOUNT", raw.trim())) : redactedText(raw, !restricted);
+      if (safe === raw && !table.label) {
         const semanticLabel = ["LABEL", "DT", "TH"].includes(String(sibling?.tagName || "").toUpperCase())
           || (String(parent?.tagName || "").toUpperCase() === "TD" && String(sibling?.tagName || "").toUpperCase() === "TD");
         const shortLabel = siblingLabel.trim().split(/\s+/).filter(Boolean).length <= 5;
@@ -90,7 +102,7 @@
         const detection = !restricted && shortLabel && (semanticLabel || delimitedLabel) ? PrivatePilotPii.detect(siblingLabel, raw) : null;
         if (detection && raw.trim()) safe = raw.replace(raw.trim(), detection.neverRead ? "[HIDDEN]" : placeholderFor(detection.kind, raw.trim()));
       }
-      if (safe !== raw) { saveText(node, raw); node.nodeValue = safe; }
+      if (safe !== raw) { saveText(node, raw, safe); node.nodeValue = safe; }
     }
     const order = snapshot.ordered || [
       ...snapshot.fields.map(field => ({ type: "field", field })),
@@ -148,9 +160,9 @@
     return true;
   }
   function clear() {
-    for (const [node, raw] of originals) if (node) node.nodeValue = raw;
+    for (const [node, raw] of originals) if (node?.nodeValue === redactedNodes.get(node)) node.nodeValue = raw;
     for (const [id, record] of fieldRecords) { const field = fields.get(id); if (field && record.original) field.element.value = record.original; if (field) PrivatePilotCapture.restoreMask(field.element); field?.element.removeAttribute?.("data-privatepilot-redacted"); }
-    originals.clear(); fields.clear(); fieldRecords.clear(); overrides.clear(); valueToPlaceholder.clear(); placeholderToValue.clear(); counters.clear(); personParts.clear(); personNames.clear(); visualRecords.clear(); recordAudit("Local context cleared");
+    originals.clear(); redactedNodes.clear(); fields.clear(); fieldRecords.clear(); overrides.clear(); valueToPlaceholder.clear(); placeholderToValue.clear(); counters.clear(); personParts.clear(); personNames.clear(); visualRecords.clear(); recordAudit("Local context cleared");
   }
   function registerVisual(candidates) {
     return candidates.map(candidate => { const placeholder = placeholderFor(candidate.kind, candidate.raw); visualRecords.set(placeholder, { original: candidate.raw, kind: candidate.kind }); recordAudit(`Visual PII detected: ${candidate.kind}`); return { kind: candidate.kind, confidence: candidate.confidence, placeholder, bounds: candidate.bounds }; });

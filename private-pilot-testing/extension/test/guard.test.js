@@ -3,7 +3,7 @@ const test = require("node:test");
 require("../capture.js");
 require("../pii.js");
 const { scan, start, snapshot, setManual, clear, applyAction } = require("../guard.js");
-const { element, textNode, fakeDocument } = require("../test-support/dom-fixture");
+const { element, textNode, fakeDocument, bankTable } = require("../test-support/dom-fixture");
 
 function page() {
   const p = element({ tagName: "P" });
@@ -81,4 +81,94 @@ test("debounced observer redacts fields added after initial SPA load", async () 
     global.MutationObserver = previousObserver;
     clear();
   }
+});
+
+test("savings-account masking changes displayed text as well as the safe preview", () => {
+  clear();
+  try {
+    const label = element({ tagName: "SPAN" }); label.textContent = "Savings Account";
+    const value = element({ tagName: "SPAN" }); value.previousElementSibling = label;
+    const labelText = textNode("Savings Account", label);
+    const valueText = textNode("123456789012", value);
+    const inline = textNode("Savings Account: 123456789012", element({ tagName: "P" }));
+    const splitParent = element({ tagName: "P" });
+    const splitLabel = textNode("SB A/c No.", splitParent);
+    const splitValue = textNode("919876543210", splitParent); splitValue.previousSibling = splitLabel;
+    const input = element({ id: "savings-account", label: "Saving Account Number", value: "1234 5678 9012" });
+    const document = fakeDocument([label, labelText, value, valueText, inline, splitLabel, splitValue, input], [input]);
+    scan(document);
+    assert.equal(valueText.nodeValue, "ACCOUNT_1", "the displayed account must change, not only the preview");
+    assert.equal(inline.nodeValue, "Savings Account: ACCOUNT_1");
+    assert.equal(input.value, "ACCOUNT_1", "formatted copies reuse the same placeholder");
+    assert.equal(splitValue.nodeValue, "ACCOUNT_2", "account labels take precedence over a phone-like digit sequence");
+    const context = snapshot(document);
+    assert.doesNotMatch(context.safeText, /123456789012|1234 5678 9012|919876543210/);
+    assert.match(context.originalText, /123456789012/);
+    require("../pii.js").assertSafePayload({ safeContext: context.safeText, question: "Summarize" }, context.privateValues);
+    scan(document);
+    assert.equal(valueText.nodeValue, "ACCOUNT_1", "rescanning must not replace a placeholder again");
+    clear();
+    assert.equal(valueText.nodeValue, "123456789012");
+    assert.equal(input.value, "1234 5678 9012");
+  } finally { clear(); }
+});
+
+test("a page refresh of a masked account text node is scanned again", () => {
+  clear();
+  try {
+    const node = textNode("Account No: 123456789012", element({ tagName: "P" }));
+    const document = fakeDocument([node]);
+    scan(document);
+    assert.equal(node.nodeValue, "Account No: ACCOUNT_1");
+    node.nodeValue = "Account No: 123456789013";
+    scan(document);
+    assert.equal(node.nodeValue, "Account No: ACCOUNT_2");
+    assert.doesNotMatch(snapshot(document).safeText, /12345678901[23]/);
+    clear();
+    assert.equal(node.nodeValue, "Account No: 123456789013", "Clear restores the latest page value");
+  } finally { clear(); }
+});
+
+test("bank table headings stay unchanged and values below each heading are redacted", () => {
+  for (const options of [{}, { headerTag: "TH" }, { thead: true }, { aria: true }, { headerTag: "TH", rowHeader: true }]) {
+    clear();
+    try {
+      const { document, headers, values, nodes } = bankTable(options);
+      const duplicate = textNode("Riya Banerjee", element({ tagName: "A" })); nodes.unshift(duplicate);
+      scan(document);
+      assert.deepEqual(headers.map(cell => cell.textContent), ["Account Name", "Account Number", "Account Type", "Balance", "Withdrawable", "Currency"]);
+      assert.deepEqual(values.map(row => row.map(cell => cell.textContent)), [["PERSON_1", "ACCOUNT_1", "Savings", "4367.36", "4367.36", "INR"], ["PERSON_2", "ACCOUNT_2", "Current", "5000.00", "5000.00", "INR"]]);
+      assert.equal(duplicate.nodeValue, "PERSON_1", "earlier name links also use the table's local mapping");
+      const context = snapshot(document);
+      assert.doesNotMatch(context.safeText, /Riya Banerjee|Mira Srinivasan|10293847561[01]/);
+      assert.match(context.safeText, /Account Name\nAccount Number/);
+      require("../pii.js").assertSafePayload({ safeContext: context.safeText, question: "Summarize" }, context.privateValues);
+      values[0][1].text.nodeValue = "102938475612";
+      scan(document);
+      assert.equal(values[0][1].textContent, "ACCOUNT_3");
+      clear();
+      assert.equal(values[0][1].textContent, "102938475612");
+      assert.equal(values[0][0].textContent, "Riya Banerjee");
+    } finally { clear(); }
+  }
+});
+
+test("table column labels apply to nested inputs and linked values", () => {
+  clear();
+  try {
+    const { document, headers, values, nodes } = bankTable({ headerTag: "TH" });
+    const accountCell = values[0][1]; accountCell.text.nodeValue = "";
+    const input = element({ id: "bank-account", value: "102938475610" }); input.parentElement = accountCell;
+    input.closest = selector => accountCell.closest(selector);
+    nodes.splice(nodes.indexOf(accountCell.text) + 1, 0, input);
+    const nameCell = values[0][0]; nameCell.text.nodeValue = "";
+    const link = element({ tagName: "A" }); link.parentElement = nameCell; link.closest = selector => nameCell.closest(selector);
+    const name = textNode("Riya Banerjee", link); nodes.splice(nodes.indexOf(nameCell.text) + 1, 0, link, name);
+    assert.equal(PrivatePilotCapture.labelFor(input), "Account Number");
+    scan(document);
+    assert.equal(input.value, "ACCOUNT_1");
+    assert.equal(name.nodeValue, "PERSON_1");
+    assert.equal(headers[1].textContent, "Account Number");
+    assert.doesNotThrow(() => snapshot(document));
+  } finally { clear(); }
 });

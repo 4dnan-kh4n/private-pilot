@@ -60,7 +60,14 @@ function clearCapture() {
 
 async function refreshContext() {
   const response = await sendToPage({ type: "privatepilot:view-context" });
-  if (!response?.ok) throw new Error("The page did not return local context.");
+  if (!response?.ok) {
+    latestContext = undefined;
+    pendingAction = undefined;
+    askButton.disabled = true;
+    actionControls.hidden = true;
+    captureView.hidden = true;
+    throw new Error(response?.error || "The page did not return local context.");
+  }
   showCapture(response.context);
 }
 
