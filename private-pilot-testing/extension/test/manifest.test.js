@@ -17,7 +17,7 @@ test("Manifest V3 uses click-to-inject permissions and bundles OCR assets", () =
   assert.equal(fs.existsSync(path.join(extensionRoot, "vendor", "tesseract", "lang", "eng.traineddata.gz")), true);
   const worker = fs.readFileSync(path.join(extensionRoot, "service-worker.js"), "utf8");
   assert.match(worker, /allFrames:\s*true/);
-  assert.match(worker, /matchAboutBlank:\s*true/);
+  assert.doesNotMatch(worker, /matchAboutBlank/);
   assert.match(worker, /chrome\.permissions\.request/);
 });
 

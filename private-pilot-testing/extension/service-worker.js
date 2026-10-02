@@ -8,7 +8,7 @@ chrome.runtime.onStartup.addListener(enableActiveTabAction);
 
 async function injectForTab(tabId) {
   try {
-    const target = { tabId, allFrames: true, matchAboutBlank: true };
+    const target = { tabId, allFrames: true };
     await chrome.scripting.executeScript({ target, func: () => new Promise(resolve => {
       const ready = () => typeof requestIdleCallback === "function" ? requestIdleCallback(() => resolve(), { timeout: 1000 }) : setTimeout(resolve, 0);
       if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready, { once: true });
