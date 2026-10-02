@@ -8,7 +8,7 @@
     "start": "node server.js",
     "dev": "node --watch server.js",
     "test": "node --test",
-    "test:extension": "node --test extension/test/capture.test.js extension/test/pii.test.js extension/test/guard.test.js extension/test/visual.test.js extension/test/manifest.test.js",
+    "test:extension": "node --test extension/test/capture.test.js extension/test/pii.test.js extension/test/guard.test.js extension/test/visual.test.js extension/test/manifest.test.js extension/test/service-worker.test.js extension/test/login-security.test.js",
     "check:extension": "node --check extension/service-worker.js && node --check extension/pii.js && node --check extension/guard.js && node --check extension/capture.js && node --check extension/visual.js && node --check extension/visual-overlay.js && node --check extension/content-script.js && node --check extension/sidepanel.js"
   },
   "dependencies": {

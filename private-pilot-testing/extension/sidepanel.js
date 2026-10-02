@@ -19,6 +19,7 @@ let activeTab;
 let latestContext;
 let pendingAction;
 let auditEntries = [];
+const ASSISTANT_ENDPOINT = "http://localhost:3000/api/privatepilot/assist";
 
 function renderAudit(entries) {
   auditEntries = entries;
@@ -36,12 +37,17 @@ function addAudit(event) {
 
 async function sendToPage(message) {
   try {
-    return await chrome.tabs.sendMessage(activeTab.id, message);
+    return await chrome.tabs.sendMessage(activeTab.id, message, { frameId: 0 });
   } catch (error) {
     const recovered = await chrome.runtime.sendMessage({ type: "privatepilot:ensure-content-script", tabId: activeTab.id });
-    if (!recovered?.ok) throw error;
-    return chrome.tabs.sendMessage(activeTab.id, message);
+    if (!recovered?.ok) throw new Error(recovered?.error || error?.message || "PrivatePilot could not access this page. Use an ordinary HTTP or HTTPS tab and click the extension button.");
+    return chrome.tabs.sendMessage(activeTab.id, message, { frameId: 0 });
   }
+}
+
+async function sendToAllFrames(message) {
+  try { return await chrome.tabs.sendMessage(activeTab.id, message); }
+  catch { return sendToPage(message); }
 }
 
 function clearCapture() {
@@ -72,8 +78,13 @@ function showCapture(context) {
     button.type = "button";
     button.textContent = field.isPrivate ? "Unmark" : "Mark private";
     button.addEventListener("click", async () => {
-      await sendToPage({ type: "privatepilot:set-manual", id: field.id, isPrivate: !field.isPrivate });
-      await refreshContext();
+      try {
+        await sendToPage({ type: "privatepilot:set-manual", id: field.id, isPrivate: !field.isPrivate });
+        await refreshContext();
+      } catch (error) {
+        status.textContent = "Page access unavailable";
+        siteMessage.textContent = error?.message || "PrivatePilot could not update this page. Reopen it and grant site access.";
+      }
     });
     row.append(label, value, button);
     return row;
@@ -92,19 +103,32 @@ chrome.tabs.query({ active: true, lastFocusedWindow: true }, ([tab]) => {
     const supported = protocol === "http:" || protocol === "https:";
     analyseButton.disabled = !supported;
     visualButton.disabled = !supported;
-    siteMessage.textContent = supported ? "Checking local protection status…" : "PrivatePilot cannot access browser-internal or extension pages.";
+    siteMessage.textContent = supported ? "Checking local protection status…" : "PrivatePilot cannot access browser-internal or extension pages. Switch to a normal HTTP or HTTPS page.";
     if (!supported || !activeTab?.id) return;
     sendToPage({ type: "privatepilot:status" }).then(result => {
       status.textContent = "Protection active";
       siteMessage.textContent = `${result.protectedValues} supported sensitive value${result.protectedValues === 1 ? "" : "s"} protected locally.`;
       renderAudit(result.audit || []);
-    }).catch(() => {
-      status.textContent = "Reload this webpage";
-      siteMessage.textContent = "Reload this webpage after installing or updating PrivatePilot.";
+    }).catch(error => {
+      status.textContent = "Page access unavailable";
+      siteMessage.textContent = error?.message || "Click the PrivatePilot toolbar button on this page to grant temporary access and inject protection.";
     });
-  } catch {
-    siteMessage.textContent = "PrivatePilot cannot access browser-internal or extension pages.";
+  } catch (error) {
+    siteMessage.textContent = error?.message || "PrivatePilot cannot access browser-internal or extension pages.";
   }
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (tabId !== activeTab?.id || changeInfo.status !== "loading") return;
+  activeTab = tab;
+  latestContext = undefined;
+  clearCapture();
+  askButton.disabled = true;
+  safePayload.textContent = "Review the new page before asking the assistant.";
+  assistantReply.hidden = true;
+  actionControls.hidden = true;
+  status.textContent = "Page changed";
+  siteMessage.textContent = "Review the new page context before sending a request.";
 });
 
 analyseButton.addEventListener("click", async () => {
@@ -123,13 +147,19 @@ analyseButton.addEventListener("click", async () => {
 });
 
 document.querySelector("#clearButton").addEventListener("click", async () => {
-  if (activeTab?.id) await sendToPage({ type: "privatepilot:clear-context" });
+  let clearError;
+  if (activeTab?.id) {
+    try { await sendToAllFrames({ type: "privatepilot:clear-context" }); }
+    catch (error) { clearError = error; }
+  }
   clearCapture();
   latestContext = undefined;
+  pendingAction = undefined;
   askButton.disabled = true;
   safePayload.textContent = "Review local context first.";
   assistantReply.hidden = true;
   actionControls.hidden = true;
+  if (clearError) siteMessage.textContent = clearError.message || "The page could not be reached to clear its local context.";
 });
 
 askButton.addEventListener("click", async () => {
@@ -140,11 +170,10 @@ askButton.addEventListener("click", async () => {
   safePayload.textContent = JSON.stringify(payload, null, 2);
   assistantReply.hidden = false;
   assistantReply.textContent = "PrivatePilot is preparing a safe request…";
-  addAudit("Safe payload sent to assistant");
+  addAudit("Assistant request prepared after local scan");
   askButton.disabled = true;
   try {
-    const endpoint = new URL("/api/privatepilot/assist", activeTab.url);
-    const response = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    const response = await PrivatePilotPii.sendSafeRequest(ASSISTANT_ENDPOINT, payload, fetch, latestContext.privateValues || []);
     const result = await response.json();
     if (!response.ok) throw new Error(result.message || "Assistant unavailable.");
     assistantReply.textContent = `${result.mode === "local-demo" ? "Local demo" : "Configured cloud"}: ${result.answer}`;
@@ -160,10 +189,14 @@ askButton.addEventListener("click", async () => {
 
 approveAction.addEventListener("click", async () => {
   if (!pendingAction || !window.confirm(`Approve filling ${pendingAction.fieldId}?`)) return;
-  const result = await sendToPage({ type: "privatepilot:apply-action", action: pendingAction });
-  addAudit(result?.ok ? `User approved action: filled ${pendingAction.fieldId}` : "Approved action could not be applied");
-  actionControls.hidden = true;
-  pendingAction = undefined;
+  try {
+    const result = await sendToPage({ type: "privatepilot:apply-action", action: pendingAction });
+    addAudit(result?.ok ? `User approved action: filled ${pendingAction.fieldId}` : "Approved action could not be applied");
+    actionControls.hidden = true;
+    pendingAction = undefined;
+  } catch (error) {
+    siteMessage.textContent = error?.message || "PrivatePilot could not reach the page to apply this action.";
+  }
 });
 
 rejectAction.addEventListener("click", () => {

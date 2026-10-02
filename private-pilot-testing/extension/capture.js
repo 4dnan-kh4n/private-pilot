@@ -3,50 +3,128 @@
   if (typeof module === "object") module.exports = api;
   root.PrivatePilotCapture = api;
 })(globalThis, function createCaptureApi() {
-  const MAX_TEXT_LENGTH = 20000;
-  const MAX_FIELDS = 60;
+  const SKIP = new Set(["SCRIPT", "STYLE", "NOSCRIPT", "TEMPLATE", "SVG", "CANVAS"]);
+  const MAX_TEXT_LENGTH = 50000;
+  const MAX_FIELDS = 250;
+  const originalTextSecurity = new WeakMap();
 
   function isVisible(element) {
-    if (!element || element.hidden || element.getAttribute?.("aria-hidden") === "true") return false;
-    if (element.type === "hidden") return false;
+    if (!element || element.hidden || element.getAttribute?.("aria-hidden") === "true" || element.type === "hidden") return false;
+    const view = element.ownerDocument?.defaultView;
+    const style = view?.getComputedStyle?.(element);
+    if (style && (style.display === "none" || style.visibility === "hidden" || style.opacity === "0")) return false;
     if (typeof element.getClientRects === "function" && element.getClientRects().length === 0) return false;
     return true;
   }
 
-  function labelFor(field, documentRef) {
-    const linkedLabel = field.labels?.[0];
-    if (linkedLabel?.textContent) return linkedLabel.textContent.trim();
-    if (field.id && documentRef.querySelector) {
-      const label = documentRef.querySelector(`label[for="${field.id}"]`);
-      if (label?.textContent) return label.textContent.trim();
-    }
-    return field.getAttribute?.("aria-label") || field.name || field.id || "Unlabelled field";
+  function labelFor(field) {
+    const labels = [...(field.labels || [])].map(item => item.textContent).filter(Boolean);
+    const wrapping = field.closest?.("label")?.textContent;
+    const ariaLabelledBy = field.getAttribute?.("aria-labelledby")?.split(/\s+/).map(id => field.ownerDocument?.getElementById?.(id)?.textContent).filter(Boolean).join(" ");
+    const aria = field.getAttribute?.("aria-label") || ariaLabelledBy;
+    const siblings = [...(field.parentElement?.children || [])];
+    const position = siblings.indexOf(field);
+    const sibling = field.previousElementSibling || siblings.slice(0, position).at(-1) || field.parentElement?.previousElementSibling;
+    const siblingText = sibling?.textContent || sibling?.innerText || "";
+    const shortLabel = siblingText.trim().split(/\s+/).length <= 5 && /[:\-]\s*$/.test(siblingText.trim());
+    const semanticSibling = ["LABEL", "DT", "TH"].includes(String(sibling?.tagName || "").toUpperCase())
+      || (String(field.parentElement?.tagName || "").toUpperCase() === "TD" && String(sibling?.tagName || "").toUpperCase() === "TD");
+    const cellSibling = field.parentElement?.parentElement?.previousElementSibling
+      || field.parentElement?.parentElement?.children?.[Math.max(0, [...(field.parentElement.parentElement?.children || [])].indexOf(field.parentElement) - 1)];
+    const cellText = cellSibling?.textContent || cellSibling?.innerText || "";
+    const cellLabel = cellText.trim().split(/\s+/).length <= 5 && (/[:\-]\s*$/.test(cellText.trim()) || ["DT", "TH"].includes(String(cellSibling?.tagName || "").toUpperCase()));
+    const adjacent = semanticSibling || shortLabel ? siblingText : cellLabel ? cellText : "";
+    return [labels[0], wrapping, aria, field.getAttribute?.("placeholder"), adjacent]
+      .find(value => value && value.trim() && value.trim().split(/\s+/).length <= 5)?.trim() || "Unlabelled field";
   }
 
-  function fieldValue(field) {
-    return String(field.value ?? field.textContent ?? "").trim().slice(0, 500);
+  function isLabelingRestricted(element) {
+    const blockedTags = new Set(["NAV", "HEADER", "MENU", "BUTTON", "A"]);
+    for (let current = element; current; current = current.parentElement) {
+      if (blockedTags.has(String(current.tagName || "").toUpperCase())) return true;
+      if (["button", "menu", "menuitem"].includes(String(current.getAttribute?.("role") || "").toLowerCase())) return true;
+      if (current.getAttribute?.("aria-hidden") === "true") return true;
+      if (/\b(?:sr-only|visually-hidden|screen-reader-only|a-offscreen|offscreen)\b/i.test(String(current.className || ""))) return true;
+      const style = current.ownerDocument?.defaultView?.getComputedStyle?.(current);
+      if (style && style.position === "absolute" && (style.clip || style.clipPath || style.overflow === "hidden")
+        && (parseFloat(style.width) <= 1 || parseFloat(style.height) <= 1)) return true;
+    }
+    return false;
+  }
+
+  function isNeverRead(field, label = labelFor(field)) {
+    const type = String(field.type || "").toLowerCase();
+    const autocomplete = String(field.getAttribute?.("autocomplete") || "").toLowerCase();
+    const hint = `${label} ${field.name || ""} ${field.id || ""} ${autocomplete}`;
+    return type === "password" || /current-password|new-password|one-time-code|cc-csc|cc-number|cc-exp|cc-name/.test(autocomplete)
+      || /password|passwd|passcode|\b(?:otp|one[- ]?time (?:password|code)|verification code|cvv|cvc|security code)\b|card\s+pin|\bpin\b(?!\s*code)/i.test(hint);
+  }
+
+  function maskSecret(field) {
+    if (!field.style) return;
+    if (!originalTextSecurity.has(field)) originalTextSecurity.set(field, field.style.webkitTextSecurity || "");
+    field.style.webkitTextSecurity = "disc";
+  }
+  function walkRoots(documentRef, callback) {
+    const seen = new Set();
+    const visit = root => {
+      if (!root || seen.has(root)) return;
+      seen.add(root);
+      const doc = root.ownerDocument || (root.nodeType === 9 ? root : documentRef);
+      const walker = doc.createTreeWalker(root, 0xFFFFFFFF, {
+        acceptNode(node) {
+          if (node.nodeType !== 1) return 1;
+          if (SKIP.has(node.tagName) || !isVisible(node)) return 2;
+          return 1;
+        }
+      });
+      let node;
+      while ((node = walker.nextNode())) {
+        if (node.nodeType === 1) {
+          if (SKIP.has(node.tagName) || !isVisible(node)) continue;
+          if (node.shadowRoot) visit(node.shadowRoot);
+          if (node.tagName === "IFRAME") {
+            try { if (node.contentDocument) visit(node.contentDocument); } catch { /* Cross-origin frames need explicit site access. */ }
+          }
+        }
+        callback(node);
+      }
+    };
+    visit(documentRef);
   }
 
   function capture(documentRef) {
-    const fields = Array.from(documentRef.querySelectorAll("input, textarea, select"))
-      .filter(field => isVisible(field) && field.type !== "password")
-      .slice(0, MAX_FIELDS)
-      .map(field => ({
-        label: labelFor(field, documentRef),
-        value: fieldValue(field),
-        type: field.type || field.tagName?.toLowerCase() || "field",
-        id: field.id || ""
-      }))
-      .filter(field => field.value || field.label !== "Unlabelled field");
-
-    // ponytail: 20k text cap keeps extension messages bounded; paginate if a future production site needs more.
-    return {
-      pageTitle: documentRef.title || "Untitled page",
-      capturedAt: new Date().toISOString(),
-      text: String(documentRef.body?.innerText || "").trim().slice(0, MAX_TEXT_LENGTH),
-      fields
-    };
+    const chunks = [];
+    const fields = [];
+    const textNodes = [];
+    const ordered = [];
+    const docs = new Set([documentRef]);
+    walkRoots(documentRef, node => {
+      if (node.ownerDocument) docs.add(node.ownerDocument);
+      if (node.nodeType === 3) {
+        const value = String(node.nodeValue || "").trim();
+        const parent = node.parentElement;
+        if (value && parent && isVisible(parent) && !SKIP.has(parent.tagName)) { chunks.push(value); textNodes.push(node); ordered.push({ type: "text", node }); }
+      } else if (node.nodeType === 1 && /^(INPUT|TEXTAREA|SELECT)$/.test(node.tagName) && isVisible(node)) {
+        if (node.ownerDocument) docs.add(node.ownerDocument);
+        const label = labelFor(node);
+        const locked = isNeverRead(node, label);
+        if (locked) maskSecret(node);
+        const value = locked ? "" : String(node.value ?? "").trim().slice(0, 1000);
+        if (value || label !== "Unlabelled field" || locked) {
+          const field = { label, value, type: node.type || node.tagName.toLowerCase(), id: node.id || "", locked, element: node };
+          fields.push(field);
+          if (fields.length <= MAX_FIELDS) ordered.push({ type: "field", field });
+        }
+      }
+    });
+    const text = chunks.join("\n").replace(/\n{3,}/g, "\n\n").slice(0, MAX_TEXT_LENGTH);
+    return { pageTitle: documentRef.title || "Untitled page", capturedAt: new Date().toISOString(), text, fields: fields.slice(0, MAX_FIELDS), textNodes, ordered, documents: [...docs] };
   }
-
-  return { capture, isVisible, labelFor };
+  function restoreMask(field) {
+    if (!originalTextSecurity.has(field) || !field.style) return;
+    field.style.webkitTextSecurity = originalTextSecurity.get(field);
+    originalTextSecurity.delete(field);
+  }
+  return { capture, isVisible, labelFor, isNeverRead, isLabelingRestricted, walkRoots, restoreMask };
 });
