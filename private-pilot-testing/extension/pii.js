@@ -3,26 +3,27 @@
   if (typeof module === "object") module.exports = api;
   root.PrivatePilotPii = api;
 })(globalThis, function createPiiApi() {
+  const PHONE_RE = /(?<!\d)(?:\+?91[\s().-]*|0[\s().-]*)?[6-9](?:[\s().-]*\d){9}(?!\d)/g;
   const patterns = [
+    ["MOBILE", PHONE_RE],
     ["EMAIL", /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/ig],
     ["PAN", /\b[A-Z]{5}\d{4}[A-Z]\b/ig],
-    ["AADHAAR", /\b(?:\d{4}[ -]?){2}\d{4}\b/g],
+    ["AADHAAR", /(?<!\d)[2-9]\d{3}[ -]?\d{4}[ -]?\d{4}(?!\d)/g],
     ["IFSC", /\b[A-Z]{4}0[A-Z0-9]{6}\b/ig],
     ["UPI", /\b[A-Z0-9._-]{2,}@[A-Z][A-Z0-9.-]{1,}\b/ig],
-    ["CARD", /\b(?:\d[ -]?){13,19}\b/g],
-    ["PHONE", /(?<!\d)(?:\+?91[ -]?)?[6-9]\d{4}[ -]?\d{5}(?!\d)/g],
+    ["CARD", /(?<!\d)(?:\d[ -]?){13,19}(?!\d)/g],
     ["DOB", /\b(?:0?[1-9]|[12]\d|3[01])[/-](?:0?[1-9]|1[0-2])[/-](?:19|20)\d{2}\b/g],
   ];
-  const labels = [
-    ["PASSWORD", /password|passwd|passcode|secret/i],
-    ["OTP", /\b(?:otp|one[- ]?time (?:password|code)|verification code|security code)\b/i],
-    ["CARD", /cvv|cvc|security code|card number|debit card|credit card/i],
-    ["AADHAAR", /aadhaar|aadhar|uid(?:ai)?/i],
-    ["PAN", /\bpan(?: number)?\b/i], ["IFSC", /\bifsc\b/i],
-    ["UPI", /upi(?: id)?|vpa/i], ["ACCOUNT", /account(?: number| no\.?| #)?|iban/i],
-    ["PHONE", /mobile|phone|telephone|contact number/i], ["EMAIL", /e-?mail/i],
-    ["ADDRESS", /address|street|city|postal address/i], ["PINCODE", /pin ?code|postal code|zip code/i],
-    ["DOB", /date of birth|\bdob\b|birth date/i], ["PERSON", /full name|first name|last name|your name|\bname\b/i]
+  const secretLabel = /password|passwd|passcode|\botp\b|one[- ]?time (?:password|code)|verification code|cvv|cvc|card\s+pin|\bpin\b(?!\s*code)|security code/i;
+  const labelKinds = [
+    ["PERSON", /account holder|customer name|full name|first name|last name|\bname\b/i],
+    ["MOBILE", /mobile|phone|contact|cell/i],
+    ["EMAIL", /e-?mail|mail\s*id/i],
+    ["AADHAAR", /aadhaar|aadhar|\buid\b/i],
+    ["PAN", /\bpan\b/i], ["IFSC", /\bifsc\b/i], ["UPI", /\bupi\b|\bvpa\b/i],
+    ["DOB", /\bdob\b|date of birth/i], ["PIN", /pin\s*code|postal\s*code|zip\s*code/i],
+    ["ADDRESS", /address|street|city/i], ["CARD", /card\s*(?:number|no\b)|debit card|credit card/i],
+    ["ACCOUNT", /account\s*(?:number|no\b|#|\ba\/c\b)|\ba\/c\b|iban/i],
   ];
 
   function luhn(value) {
@@ -37,48 +38,68 @@
     return sum % 10 === 0;
   }
 
+  function verhoeff(value) {
+    const d = [[0,1,2,3,4,5,6,7,8,9],[1,2,3,4,0,6,7,8,9,5],[2,3,4,0,1,7,8,9,5,6],[3,4,0,1,2,8,9,5,6,7],[4,0,1,2,3,9,5,6,7,8],[5,9,8,7,6,0,4,3,2,1],[6,5,9,8,7,1,0,4,3,2],[7,6,5,9,8,2,1,0,4,3],[8,7,6,5,9,3,2,1,0,4],[9,8,7,6,5,4,3,2,1,0]];
+    const p = [[0,1,2,3,4,5,6,7,8,9],[1,5,7,6,2,8,3,0,9,4],[5,8,0,3,7,9,6,1,4,2],[8,9,1,6,0,4,3,5,2,7],[9,4,5,3,1,2,6,8,7,0],[4,2,8,6,5,7,3,9,0,1],[2,7,9,3,8,0,6,4,1,5],[7,0,4,6,9,1,3,2,5,8]];
+    let c = 0;
+    const digits = value.replace(/\D/g, "").split("").reverse();
+    for (let i = 0; i < digits.length; i++) c = d[c][p[i % 8][Number(digits[i])]];
+    return c === 0;
+  }
+  function validAadhaar(value) { return /^[2-9](?:\d[ -]?){10}\d$/.test(String(value).trim()) && verhoeff(value); }
+
+  function emptyLikeValue(value) {
+    return !String(value || "").trim() || /^(?:add|enter|type|your|please enter|e\.g\.?)[\s\w'-]*(?:email|e-mail|phone|mobile|name|address|value)?$/i.test(String(value).trim());
+  }
   function detect(label = "", value = "", type = "") {
     const hint = `${label} ${type}`;
-    const digits = value.replace(/\D/g, "");
-    if ((/order|transaction|invoice|reference|tracking|receipt|price|amount/i.test(hint) || /₹|\bINR\b/i.test(value)) && /^\d{6,19}$/.test(digits)) return null;
-    const secret = labels.find(([kind, re]) => ["PASSWORD", "OTP"].includes(kind) && re.test(hint));
-    if (type === "password" || secret) return { kind: secret?.[0] || "PASSWORD", confidence: "High", neverRead: true };
-    const direct = labels.find(([kind, re]) => re.test(hint) && kind !== "PERSON" && kind !== "ADDRESS");
-    if (direct) return { kind: direct[0], confidence: "High" };
-    if (/account(?: number| no\.?| #)?|iban/i.test(hint) && /^\d{9,18}$/.test(value.replace(/[ -]/g, ""))) return { kind: "ACCOUNT", confidence: "High" };
-    for (const [kind, re] of patterns) {
-      const match = value.match(re)?.[0];
-      if (!match) continue;
-      if (kind === "CARD" && !luhn(match)) continue;
-      if (kind === "ACCOUNT" && (/^(19|20)\d{2}$/.test(match) || /(?:₹|\bINR\s*)\s*\d/.test(label))) continue;
-      return { kind, confidence: "High" };
-    }
-    const person = labels.find(([kind, re]) => kind === "PERSON" && re.test(hint));
-    if (person && value.trim()) return { kind: "PERSON", confidence: "High" };
-    const address = labels.find(([kind, re]) => kind === "ADDRESS" && re.test(hint));
-    if (address && value.trim()) return { kind: "ADDRESS", confidence: "Medium" };
+    if (String(type).toLowerCase() === "password" || secretLabel.test(hint)) return { kind: /otp|one[- ]?time|verification code/i.test(hint) ? "OTP" : "PASSWORD", confidence: "High", neverRead: true };
+    const amountContext = /order|transaction|invoice|reference|tracking|receipt|price|amount/i.test(hint) || /₹|\bINR\b/i.test(value);
+    if (amountContext) return null;
+    const explicit = labelKinds.find(([, re]) => re.test(label));
+    const text = String(value || "").trim();
+    if (explicit?.[0] === "CARD" && text && (!/^(?:\d[ -]?){13,19}$/.test(text) || !luhn(text))) return null;
+    if (explicit?.[0] === "AADHAAR" && text && !validAadhaar(text)) return null;
+    if (explicit) return { kind: explicit[0], confidence: "High" };
+    if (!text || emptyLikeValue(text)) return null;
+    // Indian phone formats are checked before Aadhaar/card digit sequences.
+    const phone = text.match(new RegExp(`^${PHONE_RE.source}$`));
+    if (phone) return { kind: "MOBILE", confidence: "High" };
+    if (validAadhaar(text)) return { kind: "AADHAAR", confidence: "High" };
+    if (/^[A-Z]{5}\d{4}[A-Z]$/i.test(text)) return { kind: "PAN", confidence: "High" };
+    if (/^[A-Z]{4}0[A-Z0-9]{6}$/i.test(text)) return { kind: "IFSC", confidence: "High" };
+    if (/^[A-Z0-9._-]{2,}@[A-Z][A-Z0-9.-]{1,}$/i.test(text) && !/@[^.]+\.[A-Z]{2,}$/i.test(text)) return { kind: "UPI", confidence: "High" };
+    if (/^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i.test(text)) return { kind: "EMAIL", confidence: "High" };
+    if (/^(?:0?[1-9]|[12]\d|3[01])[/-](?:0?[1-9]|1[0-2])[/-](?:19|20)\d{2}$/.test(text)) return { kind: "DOB", confidence: "High" };
+    if (/^(?:\d[ -]?){13,19}$/.test(text) && luhn(text)) return { kind: "CARD", confidence: "High" };
     return null;
   }
 
   function redactText(text, getPlaceholder) {
-    const put = (kind, value) => /^(?:PERSON|ACCOUNT|EMAIL|PHONE|PAN|AADHAAR|IFSC|CARD|UPI|PINCODE|DOB|ADDRESS|PASSWORD|OTP|PRIVATE)_\d+$/i.test(String(value)) ? value : getPlaceholder(kind, value);
     let safe = String(text);
-    for (const [kind, re] of patterns) {
+    const placeholder = (kind, value) => getPlaceholder(kind, value);
+    const alreadyPlaceholder = value => /^(?:PERSON|MOBILE|EMAIL|AADHAAR|PAN|CARD|ACCOUNT|IFSC|UPI|PIN|DOB|ADDRESS|PRIVATE)_\d+$/i.test(String(value).trim());
+    // Labels win over value shapes, including a label and its value on the following line.
+    const labelPattern = /(?:password|passwd|passcode|otp|one[- ]?time (?:password|code)|verification code|cvv|cvc|card\s+pin|pin\s+number|\bpin\b(?!\s*code)|security code|account holder|customer name|full name|first name|last name|primary mobile number|mobile number|phone number|contact number|mail\s*id|e-?mail|mobile|phone|contact|cell|\bname\b|aadhaar|aadhar|\buid\b|\bpan\b|\bifsc\b|\bupi\b|\bvpa\b|\bdob\b|date of birth|pin\s*code|postal\s*code|zip\s*code|address|street|card\s*(?:number|no\b)|debit card|credit card|account\s*(?:number|no\b|#)|a\/c|iban)(?:\s*[:\-]\s*|\s*\n\s*)([^\n,;]{1,100})/ig;
+    safe = safe.replace(labelPattern, (all, rawValue, offset, whole) => {
+      const label = all.slice(0, all.length - rawValue.length).replace(/[:\-\s]+$/, "").trim();
+      const value = rawValue.trim();
+      if (!value || emptyLikeValue(value) || alreadyPlaceholder(value)) return all;
+      const found = detect(label, value);
+      if (!found) return all;
+      return `${all.slice(0, all.length - rawValue.length)}${found.neverRead ? "[HIDDEN]" : placeholder(found.kind, value)}`;
+    });
+    for (const [kind, source] of patterns) {
+      const re = new RegExp(source.source, source.flags);
       safe = safe.replace(re, (match, offset, whole) => {
-        const nearby = whole.slice(Math.max(0, offset - 40), offset);
-        if ((/order|transaction|invoice|reference|tracking|receipt|price|amount/i.test(nearby) || /(?:₹|\bINR\s*)\s*$/.test(nearby)) && /^\d+$/.test(match.replace(/[ -]/g, ""))) return match;
+        const nearby = whole.slice(Math.max(0, offset - 45), offset);
+        if (/order|transaction|invoice|reference|tracking|receipt|price|amount/i.test(nearby) || /(?:₹|\bINR\s*)\s*$/.test(nearby)) return match;
         if (kind === "CARD" && !luhn(match)) return match;
-        if (kind === "ACCOUNT" && (/^(19|20)\d{2}$/.test(match) || /(?:₹|INR\s*)\s*\d/.test(safe.slice(Math.max(0, safe.indexOf(match) - 8), safe.indexOf(match))))) return match;
-        return put(kind, match);
+        if (kind === "AADHAAR" && !verhoeff(match)) return match;
+        const found = detect("", match);
+        return found?.kind === kind && !found.neverRead ? placeholder(kind, match) : match;
       });
     }
-    // Names and addresses are redacted only with nearby explicit labels to avoid masking ordinary prose.
-    safe = safe.replace(/\b(?:full name|first name|last name|your name|name)\s*[:\-]?\s*([\p{Lu}][\p{L}'’-]+(?:\s+[\p{Lu}][\p{L}'’-]+){0,2})(?![\p{L}\p{N}_])/giu,
-      (_all, value) => `${_all.slice(0, _all.length - value.length)}${put("PERSON", value)}`);
-    safe = safe.replace(/\b(password|passcode|otp|one[- ]?time (?:password|code)|verification code|cvv|cvc|security code)\s*[:\-]\s*([^\n,;]{1,48})/gi,
-      (all, label, value) => `${all.slice(0, all.length - value.length)}${put(/otp|one[- ]?time|verification/i.test(label) ? "OTP" : /cvv|cvc|security code/i.test(label) ? "CARD" : "PASSWORD", value)}`);
-    safe = safe.replace(/\b(?:account(?: number| no\.?| #)?|aadhaar|aadhar|pan(?: number)?|ifsc|upi(?: id)?|mobile|phone|e-?mail|pin ?code|postal code|date of birth|dob|address|street address)(?:\s*[:\-]\s*|\s*\n\s*)([^\n,;]{3,48})/gi,
-      (all, value) => `${all.slice(0, all.length - value.length)}${put(detect(all.slice(0, all.length - value.length), value)?.kind || "PRIVATE", value)}`);
     return safe;
   }
   function assertSafePayload(payload, knownPrivateValues = []) {
@@ -96,5 +117,5 @@
       body: JSON.stringify(payload), cache: "no-store", credentials: "omit"
     });
   }
-  return { detect, luhn, redactText, assertSafePayload, sendSafeRequest, patterns };
+  return { detect, luhn, verhoeff, redactText, assertSafePayload, sendSafeRequest, patterns };
 });

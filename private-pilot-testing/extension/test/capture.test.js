@@ -29,7 +29,22 @@ test("capture visibility and password-related autocomplete classifications", () 
   assert.equal(isVisible(element()), true);
   assert.equal(isVisible(Object.assign(element(), { hidden: true })), false);
   assert.equal(isNeverRead(element({ attrs: { autocomplete: "current-password" } })), true);
+  assert.equal(isNeverRead(element({ label: "Password" })), true);
   assert.equal(isNeverRead(element({ attrs: { autocomplete: "cc-csc" } })), true);
+});
+
+test("field labels include aria-label, placeholder, definition-list and table label cells", () => {
+  const { labelFor } = require("../capture.js");
+  assert.equal(labelFor(element({ attrs: { "aria-label": "Primary mobile number" } })), "Primary mobile number");
+  assert.equal(labelFor(element({ attrs: { placeholder: "E-mail address" } })), "E-mail address");
+  const dt = element({ tagName: "DT" }); dt.textContent = "Name";
+  const dd = element({ tagName: "DD" }); dd.previousElementSibling = dt;
+  const nameInput = element({ tagName: "INPUT" }); nameInput.parentElement = dd;
+  assert.equal(labelFor(nameInput), "Name");
+  const labelCell = element({ tagName: "TD" }); labelCell.textContent = "Account number";
+  const valueCell = element({ tagName: "TD" }); valueCell.previousElementSibling = labelCell;
+  const accountInput = element({ tagName: "INPUT" }); accountInput.parentElement = valueCell;
+  assert.equal(labelFor(accountInput), "Account number");
 });
 
 test("capture walks open shadow roots and same-origin iframe documents", () => {

@@ -18,7 +18,8 @@
   function recordAudit(event) { audit.push({ at: new Date().toISOString(), event }); if (audit.length > 40) audit.shift(); }
   function idFor(element) { let id = element.getAttribute?.("data-privatepilot-id") || element.id; if (!id) { id = `pp-field-${nextId++}`; element.setAttribute?.("data-privatepilot-id", id); } return id; }
   function placeholderFor(kind, raw) {
-    const key = String(raw).trim().toLocaleLowerCase();
+    const value = String(raw).trim();
+    const key = `${kind}:${/^(?:MOBILE|AADHAAR|CARD|ACCOUNT|PIN)$/.test(kind) ? value.replace(/\D/g, "") : value.toLocaleLowerCase()}`;
     if (valueToPlaceholder.has(key)) return valueToPlaceholder.get(key);
     const number = (counters.get(kind) || 0) + 1; counters.set(kind, number);
     const placeholder = `${kind}_${number}`; valueToPlaceholder.set(key, placeholder); placeholderToValue.set(placeholder, String(raw));
@@ -30,19 +31,19 @@
   function redactedText(raw) { return PrivatePilotPii.redactText(raw, (kind, value) => placeholderFor(kind, value)); }
   function collect(documentRef) {
     const snapshot = PrivatePilotCapture.capture(documentRef);
-    for (let index = 0; index < snapshot.fields.length; index++) {
-      const field = snapshot.fields[index];
+    function processField(field) {
       const element = field.element;
-      if (!element) continue;
+      if (!element) return;
       const id = idFor(element); const label = PrivatePilotCapture.labelFor(element);
       fields.set(id, { id, label, type: element.type || element.tagName?.toLowerCase() || "text", element });
       const priorRecord = fieldRecords.get(id);
-      if (priorRecord && String(element.value || "") === priorRecord.placeholder) continue;
+      if (priorRecord?.locked) return;
+      if (priorRecord && String(element.value || "") === priorRecord.placeholder) return;
       if (field.locked) {
         const autocomplete = String(element.getAttribute?.("autocomplete") || "").toLowerCase();
-        const kind = PrivatePilotPii.detect(label, "", field.type)?.kind || (/one-time-code|otp/.test(autocomplete) ? "OTP" : /cc-|cvv|cvc/.test(`${autocomplete} ${label}`) ? "CARD" : "PASSWORD");
-        fieldRecords.set(id, { kind, placeholder: placeholderFor(kind, `locked:${id}`), locked: true });
-        continue;
+        const kind = /one-time-code|otp/.test(autocomplete) ? "OTP" : PrivatePilotPii.detect(label, "", field.type)?.kind || (/cc-|cvv|cvc/.test(`${autocomplete} ${label}`) ? "PASSWORD" : "PASSWORD");
+        fieldRecords.set(id, { kind, locked: true });
+        return;
       }
       const detection = overrides.get(id) === true ? { kind: "PRIVATE", confidence: "User marked" } : PrivatePilotPii.detect(label, field.value, field.type);
       if (detection && field.value) {
@@ -55,24 +56,36 @@
         element.removeAttribute?.("data-privatepilot-redacted");
       }
     }
-    for (let index = 0; index < snapshot.textNodes.length; index++) {
-      const node = snapshot.textNodes[index];
+    function processText(node) {
+      const index = snapshot.textNodes.indexOf(node);
       const raw = node.nodeValue || "";
-      if (originals.has(node)) continue;
+      if (originals.has(node)) return;
       let safe = redactedText(raw);
       if (safe === raw) {
         const nearby = snapshot.textNodes.slice(Math.max(0, index - 4), index).map(item => item.nodeValue || "").join(" ").slice(-140);
-        const label = nearby.match(/(?:full name|first name|last name|your name|account(?: number| no\.?| #)?|aadhaar|aadhar|pan(?: number)?|ifsc|upi(?: id)?|mobile|phone|e-?mail|pin ?code|postal code|date of birth|\bdob\b|address|street address)\s*[:\-]?\s*$/i)?.[0];
+        const parent = node.parentElement;
+        const siblingLabel = parent?.previousElementSibling?.textContent || parent?.previousElementSibling?.innerText
+          || parent?.parentElement?.previousElementSibling?.textContent
+          || parent?.parentElement?.children?.[Math.max(0, [...(parent.parentElement.children || [])].indexOf(parent) - 1)]?.textContent;
+        const label = `${siblingLabel || ""} ${nearby}`.match(/(?:password|passcode|otp|one[- ]?time (?:password|code)|verification code|cvv|cvc|card\s+pin|pin\s+(?:number|code)|security code|account holder|customer name|full name|first name|last name|your name|\bname\b|account(?: number| no\.?| #|\s+a\/c)?|aadhaar|aadhar|uid|pan(?: number)?|ifsc|upi(?: id)?|vpa|mobile|phone|contact|cell|e-?mail|mail\s*id|pin ?code|postal code|zip code|date of birth|\bdob\b|address|street address|card\s*(?:number|no\b))\s*[:\-]?\s*$/i)?.[0];
         const detection = label && PrivatePilotPii.detect(label, raw);
-        if (detection && raw.trim()) safe = raw.replace(raw.trim(), placeholderFor(detection.kind, raw.trim()));
+        if (detection && raw.trim()) safe = raw.replace(raw.trim(), detection.neverRead ? "[HIDDEN]" : placeholderFor(detection.kind, raw.trim()));
       }
       if (safe !== raw) { saveText(node, raw); node.nodeValue = safe; }
+    }
+    const order = snapshot.ordered || [
+      ...snapshot.fields.map(field => ({ type: "field", field })),
+      ...snapshot.textNodes.map(node => ({ type: "text", node }))
+    ];
+    for (const item of order) {
+      if (item.type === "field") processField(item.field);
+      else processText(item.node);
     }
     // Rebuild safe page text after DOM mutation; never send local original-value fields.
     const after = PrivatePilotCapture.capture(documentRef);
     const safeFields = after.fields.map(field => {
       const record = fieldRecords.get(idFor(field.element));
-      return `${field.label}: ${record?.placeholder || field.value}`;
+      return `${field.label}: ${record?.locked ? "[HIDDEN]" : record?.placeholder || field.value}`;
     });
     snapshot.text = redactedText([after.text, ...safeFields].filter(Boolean).join("\n")).slice(0, MAX_SAFE_CONTEXT_LENGTH);
     snapshot.originalFields = snapshot.fields.map(field => {
@@ -96,7 +109,7 @@
       audit: auditTrail(),
       fields: Array.from(fields.values()).map(field => {
         const record = fieldRecords.get(field.id);
-        return { id: field.id, label: field.label, kind: record?.kind || PrivatePilotPii.detect(field.label, "", field.type)?.kind || "Not detected", confidence: record ? "High" : "Not detected", isPrivate: Boolean(record), safeValue: record?.placeholder || "" };
+        return { id: field.id, label: field.label, kind: record?.kind || PrivatePilotPii.detect(field.label, "", field.type)?.kind || "Not detected", confidence: record ? "High" : "Not detected", isPrivate: Boolean(record), safeValue: record?.locked ? "[HIDDEN]" : record?.placeholder || "" };
       })
     };
   }

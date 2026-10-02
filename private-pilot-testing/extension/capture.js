@@ -24,7 +24,10 @@
     const aria = field.getAttribute?.("aria-label") || ariaLabelledBy;
     const siblings = [...(field.parentElement?.children || [])];
     const position = siblings.indexOf(field);
-    const adjacent = field.previousElementSibling?.textContent || siblings.slice(0, position).map(item => item.textContent).join(" ") || field.parentElement?.previousElementSibling?.textContent;
+    const adjacent = field.previousElementSibling?.textContent || siblings.slice(0, position).map(item => item.textContent).join(" ")
+      || field.parentElement?.previousElementSibling?.textContent
+      || field.parentElement?.parentElement?.previousElementSibling?.textContent
+      || field.parentElement?.parentElement?.children?.[Math.max(0, [...(field.parentElement.parentElement.children || [])].indexOf(field.parentElement) - 1)]?.textContent;
     return [labels[0], wrapping, aria, field.getAttribute?.("placeholder"), adjacent, field.getAttribute?.("autocomplete"), field.name, field.id]
       .find(value => value && value.trim())?.trim() || "Unlabelled field";
   }
@@ -34,7 +37,7 @@
     const autocomplete = String(field.getAttribute?.("autocomplete") || "").toLowerCase();
     const hint = `${label} ${field.name || ""} ${field.id || ""} ${autocomplete}`;
     return type === "password" || /current-password|new-password|one-time-code|cc-csc|cc-number|cc-exp|cc-name/.test(autocomplete)
-      || /\b(?:otp|one[- ]?time (?:password|code)|verification code|cvv|cvc|security code)\b/i.test(hint);
+      || /password|passwd|passcode|\b(?:otp|one[- ]?time (?:password|code)|verification code|cvv|cvc|security code)\b|card\s+pin|\bpin\b(?!\s*code)/i.test(hint);
   }
 
   function maskSecret(field) {
@@ -74,24 +77,29 @@
     const chunks = [];
     const fields = [];
     const textNodes = [];
+    const ordered = [];
     const docs = new Set([documentRef]);
     walkRoots(documentRef, node => {
       if (node.ownerDocument) docs.add(node.ownerDocument);
       if (node.nodeType === 3) {
         const value = String(node.nodeValue || "").trim();
         const parent = node.parentElement;
-        if (value && parent && isVisible(parent) && !SKIP.has(parent.tagName)) { chunks.push(value); textNodes.push(node); }
+        if (value && parent && isVisible(parent) && !SKIP.has(parent.tagName)) { chunks.push(value); textNodes.push(node); ordered.push({ type: "text", node }); }
       } else if (node.nodeType === 1 && /^(INPUT|TEXTAREA|SELECT)$/.test(node.tagName) && isVisible(node)) {
         if (node.ownerDocument) docs.add(node.ownerDocument);
         const label = labelFor(node);
         const locked = isNeverRead(node, label);
         if (locked) maskSecret(node);
         const value = locked ? "" : String(node.value ?? "").trim().slice(0, 1000);
-        if (value || label !== "Unlabelled field" || locked) fields.push({ label, value, type: node.type || node.tagName.toLowerCase(), id: node.id || "", locked, element: node });
+        if (value || label !== "Unlabelled field" || locked) {
+          const field = { label, value, type: node.type || node.tagName.toLowerCase(), id: node.id || "", locked, element: node };
+          fields.push(field);
+          if (fields.length <= MAX_FIELDS) ordered.push({ type: "field", field });
+        }
       }
     });
     const text = chunks.join("\n").replace(/\n{3,}/g, "\n\n").slice(0, MAX_TEXT_LENGTH);
-    return { pageTitle: documentRef.title || "Untitled page", capturedAt: new Date().toISOString(), text, fields: fields.slice(0, MAX_FIELDS), textNodes, documents: [...docs] };
+    return { pageTitle: documentRef.title || "Untitled page", capturedAt: new Date().toISOString(), text, fields: fields.slice(0, MAX_FIELDS), textNodes, ordered, documents: [...docs] };
   }
   function restoreMask(field) {
     if (!originalTextSecurity.has(field) || !field.style) return;

@@ -6,7 +6,7 @@ const { candidatesFromBlocks } = require("../visual.js");
 test("visual OCR candidates detect fictional PII and preserve scaled bounding boxes", () => {
   const candidates = candidatesFromBlocks([
     { rawValue: "Full name: Aarav Demo", boundingBox: { x: 10, y: 20, width: 80, height: 15 } },
-    { rawValue: "Account: 123456789012", boundingBox: { x: 20, y: 50, width: 90, height: 15 } },
+    { rawValue: "Account number: 123456789012", boundingBox: { x: 20, y: 50, width: 90, height: 15 } },
     { rawValue: "Public heading", boundingBox: { x: 0, y: 0, width: 10, height: 10 } }
   ], 2);
 

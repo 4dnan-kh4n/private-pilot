@@ -75,7 +75,7 @@ test("debounced observer redacts fields added after initial SPA load", async () 
     fields.push(phone); nodes.push(phone);
     mutationCallback();
     await new Promise(resolve => setTimeout(resolve, 220));
-    assert.equal(phone.value, "PHONE_1");
+    assert.equal(phone.value, "MOBILE_1");
     observer.disconnect();
   } finally {
     global.MutationObserver = previousObserver;
