@@ -24,12 +24,32 @@
     const aria = field.getAttribute?.("aria-label") || ariaLabelledBy;
     const siblings = [...(field.parentElement?.children || [])];
     const position = siblings.indexOf(field);
-    const adjacent = field.previousElementSibling?.textContent || siblings.slice(0, position).map(item => item.textContent).join(" ")
-      || field.parentElement?.previousElementSibling?.textContent
-      || field.parentElement?.parentElement?.previousElementSibling?.textContent
-      || field.parentElement?.parentElement?.children?.[Math.max(0, [...(field.parentElement.parentElement.children || [])].indexOf(field.parentElement) - 1)]?.textContent;
-    return [labels[0], wrapping, aria, field.getAttribute?.("placeholder"), adjacent, field.getAttribute?.("autocomplete"), field.name, field.id]
-      .find(value => value && value.trim())?.trim() || "Unlabelled field";
+    const sibling = field.previousElementSibling || siblings.slice(0, position).at(-1) || field.parentElement?.previousElementSibling;
+    const siblingText = sibling?.textContent || sibling?.innerText || "";
+    const shortLabel = siblingText.trim().split(/\s+/).length <= 5 && /[:\-]\s*$/.test(siblingText.trim());
+    const semanticSibling = ["LABEL", "DT", "TH"].includes(String(sibling?.tagName || "").toUpperCase())
+      || (String(field.parentElement?.tagName || "").toUpperCase() === "TD" && String(sibling?.tagName || "").toUpperCase() === "TD");
+    const cellSibling = field.parentElement?.parentElement?.previousElementSibling
+      || field.parentElement?.parentElement?.children?.[Math.max(0, [...(field.parentElement.parentElement?.children || [])].indexOf(field.parentElement) - 1)];
+    const cellText = cellSibling?.textContent || cellSibling?.innerText || "";
+    const cellLabel = cellText.trim().split(/\s+/).length <= 5 && (/[:\-]\s*$/.test(cellText.trim()) || ["DT", "TH"].includes(String(cellSibling?.tagName || "").toUpperCase()));
+    const adjacent = semanticSibling || shortLabel ? siblingText : cellLabel ? cellText : "";
+    return [labels[0], wrapping, aria, field.getAttribute?.("placeholder"), adjacent]
+      .find(value => value && value.trim() && value.trim().split(/\s+/).length <= 5)?.trim() || "Unlabelled field";
+  }
+
+  function isLabelingRestricted(element) {
+    const blockedTags = new Set(["NAV", "HEADER", "MENU", "BUTTON", "A"]);
+    for (let current = element; current; current = current.parentElement) {
+      if (blockedTags.has(String(current.tagName || "").toUpperCase())) return true;
+      if (["button", "menu", "menuitem"].includes(String(current.getAttribute?.("role") || "").toLowerCase())) return true;
+      if (current.getAttribute?.("aria-hidden") === "true") return true;
+      if (/\b(?:sr-only|visually-hidden|screen-reader-only|a-offscreen|offscreen)\b/i.test(String(current.className || ""))) return true;
+      const style = current.ownerDocument?.defaultView?.getComputedStyle?.(current);
+      if (style && style.position === "absolute" && (style.clip || style.clipPath || style.overflow === "hidden")
+        && (parseFloat(style.width) <= 1 || parseFloat(style.height) <= 1)) return true;
+    }
+    return false;
   }
 
   function isNeverRead(field, label = labelFor(field)) {
@@ -106,5 +126,5 @@
     field.style.webkitTextSecurity = originalTextSecurity.get(field);
     originalTextSecurity.delete(field);
   }
-  return { capture, isVisible, labelFor, isNeverRead, walkRoots, restoreMask };
+  return { capture, isVisible, labelFor, isNeverRead, isLabelingRestricted, walkRoots, restoreMask };
 });

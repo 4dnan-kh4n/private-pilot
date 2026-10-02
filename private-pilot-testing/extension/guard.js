@@ -10,6 +10,8 @@
   const valueToPlaceholder = new Map();
   const placeholderToValue = new Map();
   const counters = new Map();
+  const personParts = new Map();
+  const personNames = new Map();
   const visualRecords = new Map();
   const MAX_SAFE_CONTEXT_LENGTH = 14000;
   const audit = [];
@@ -20,15 +22,31 @@
   function placeholderFor(kind, raw) {
     const value = String(raw).trim();
     const key = `${kind}:${/^(?:MOBILE|AADHAAR|CARD|ACCOUNT|PIN)$/.test(kind) ? value.replace(/\D/g, "") : value.toLocaleLowerCase()}`;
-    if (valueToPlaceholder.has(key)) return valueToPlaceholder.get(key);
-    const number = (counters.get(kind) || 0) + 1; counters.set(kind, number);
-    const placeholder = `${kind}_${number}`; valueToPlaceholder.set(key, placeholder); placeholderToValue.set(placeholder, String(raw));
+    let placeholder = valueToPlaceholder.get(key);
+    if (!placeholder && kind === "PERSON") {
+      const existing = new Set(value.split(/\s+/).map(part => personParts.get(part.toLocaleLowerCase())).filter(Boolean));
+      if (existing.size === 1) placeholder = [...existing][0];
+    }
+    if (!placeholder) {
+      const number = (counters.get(kind) || 0) + 1; counters.set(kind, number);
+      placeholder = `${kind}_${number}`;
+    }
+    valueToPlaceholder.set(key, placeholder);
+    if (kind === "PERSON") {
+      personNames.set(value.toLocaleLowerCase(), placeholder);
+      for (const part of value.match(/[\p{L}][\p{L}'’-]*/gu) || []) {
+        if (part.length >= 3 && !PrivatePilotPii.isCommonNamePart(part)) personParts.set(part.toLocaleLowerCase(), placeholder);
+      }
+    }
+    placeholderToValue.set(placeholder, value);
     return placeholder;
   }
   function saveText(node, raw) {
     if (!originals.has(node)) originals.set(node, raw);
   }
-  function redactedText(raw) { return PrivatePilotPii.redactText(raw, (kind, value) => placeholderFor(kind, value)); }
+  function redactedText(raw, allowLabels = true) {
+    return PrivatePilotPii.redactText(raw, (kind, value) => placeholderFor(kind, value), { allowLabels, personParts, personNames });
+  }
   function collect(documentRef) {
     const snapshot = PrivatePilotCapture.capture(documentRef);
     function processField(field) {
@@ -57,18 +75,19 @@
       }
     }
     function processText(node) {
-      const index = snapshot.textNodes.indexOf(node);
       const raw = node.nodeValue || "";
       if (originals.has(node)) return;
-      let safe = redactedText(raw);
+      const restricted = PrivatePilotCapture.isLabelingRestricted(node.parentElement);
+      let safe = redactedText(raw, !restricted);
       if (safe === raw) {
-        const nearby = snapshot.textNodes.slice(Math.max(0, index - 4), index).map(item => item.nodeValue || "").join(" ").slice(-140);
         const parent = node.parentElement;
-        const siblingLabel = parent?.previousElementSibling?.textContent || parent?.previousElementSibling?.innerText
-          || parent?.parentElement?.previousElementSibling?.textContent
-          || parent?.parentElement?.children?.[Math.max(0, [...(parent.parentElement.children || [])].indexOf(parent) - 1)]?.textContent;
-        const label = `${siblingLabel || ""} ${nearby}`.match(/(?:password|passcode|otp|one[- ]?time (?:password|code)|verification code|cvv|cvc|card\s+pin|pin\s+(?:number|code)|security code|account holder|customer name|full name|first name|last name|your name|\bname\b|account(?: number| no\.?| #|\s+a\/c)?|aadhaar|aadhar|uid|pan(?: number)?|ifsc|upi(?: id)?|vpa|mobile|phone|contact|cell|e-?mail|mail\s*id|pin ?code|postal code|zip code|date of birth|\bdob\b|address|street address|card\s*(?:number|no\b))\s*[:\-]?\s*$/i)?.[0];
-        const detection = label && PrivatePilotPii.detect(label, raw);
+        const sibling = parent?.previousElementSibling;
+        const siblingLabel = sibling?.textContent || sibling?.innerText || "";
+        const semanticLabel = ["LABEL", "DT", "TH"].includes(String(sibling?.tagName || "").toUpperCase())
+          || (String(parent?.tagName || "").toUpperCase() === "TD" && String(sibling?.tagName || "").toUpperCase() === "TD");
+        const shortLabel = siblingLabel.trim().split(/\s+/).filter(Boolean).length <= 5;
+        const delimitedLabel = /[:\-]\s*$/.test(siblingLabel.trim());
+        const detection = !restricted && shortLabel && (semanticLabel || delimitedLabel) ? PrivatePilotPii.detect(siblingLabel, raw) : null;
         if (detection && raw.trim()) safe = raw.replace(raw.trim(), detection.neverRead ? "[HIDDEN]" : placeholderFor(detection.kind, raw.trim()));
       }
       if (safe !== raw) { saveText(node, raw); node.nodeValue = safe; }
@@ -81,6 +100,8 @@
       if (item.type === "field") processField(item.field);
       else processText(item.node);
     }
+    // Names found later in document order also protect earlier greetings and other visible mentions.
+    for (const node of snapshot.textNodes) processText(node);
     // Rebuild safe page text after DOM mutation; never send local original-value fields.
     const after = PrivatePilotCapture.capture(documentRef);
     const safeFields = after.fields.map(field => {
@@ -129,7 +150,7 @@
   function clear() {
     for (const [node, raw] of originals) if (node) node.nodeValue = raw;
     for (const [id, record] of fieldRecords) { const field = fields.get(id); if (field && record.original) field.element.value = record.original; if (field) PrivatePilotCapture.restoreMask(field.element); field?.element.removeAttribute?.("data-privatepilot-redacted"); }
-    originals.clear(); fields.clear(); fieldRecords.clear(); overrides.clear(); valueToPlaceholder.clear(); placeholderToValue.clear(); counters.clear(); visualRecords.clear(); recordAudit("Local context cleared");
+    originals.clear(); fields.clear(); fieldRecords.clear(); overrides.clear(); valueToPlaceholder.clear(); placeholderToValue.clear(); counters.clear(); personParts.clear(); personNames.clear(); visualRecords.clear(); recordAudit("Local context cleared");
   }
   function registerVisual(candidates) {
     return candidates.map(candidate => { const placeholder = placeholderFor(candidate.kind, candidate.raw); visualRecords.set(placeholder, { original: candidate.raw, kind: candidate.kind }); recordAudit(`Visual PII detected: ${candidate.kind}`); return { kind: candidate.kind, confidence: candidate.confidence, placeholder, bounds: candidate.bounds }; });

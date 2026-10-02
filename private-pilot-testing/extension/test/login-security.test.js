@@ -54,3 +54,24 @@ test("fake Login & Security layout redacts values by type and never reads passwo
   require("../pii.js").assertSafePayload({ safeContext: context.safeText, question: "Summarize this security page" });
   clear();
 });
+
+test("Amazon-style greeting redacts a known person and leaves navigation items untouched", () => {
+  clear();
+  const nav = element({ tagName: "NAV" });
+  const greeting = textNode("Hello, Tapan", nav);
+  const account = textNode("Account & Lists", nav);
+  const returns = textNode("Returns & Orders", nav);
+  const cart = textNode("Cart", nav);
+  const name = element({ id: "customer-name", label: "Name", value: "Tapan Patidar" });
+  const document = fakeDocument([nav, greeting, account, returns, cart, name], [name]);
+
+  scan(document);
+  const context = snapshot(document);
+  assert.match(context.safeText, /Hello, PERSON_1/);
+  assert.match(context.safeText, /Account & Lists/);
+  assert.match(context.safeText, /Returns & Orders/);
+  assert.match(context.safeText, /Cart/);
+  assert.equal(name.value, "PERSON_1");
+  assert.doesNotMatch(context.safeText, /Tapan/);
+  clear();
+});

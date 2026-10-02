@@ -7,7 +7,7 @@ const { element, textNode, fakeDocument } = require("../test-support/dom-fixture
 
 function page() {
   const p = element({ tagName: "P" });
-  const nodes = [textNode("Welcome", p), textNode("Full name", p), textNode("Mira Srinivasan", p), textNode("Account No", p), textNode("123456789012", p)];
+  const nodes = [textNode("Welcome", p), textNode("Full name:", p), textNode("Mira Srinivasan", p), textNode("Account No:", p), textNode("123456789012", p)];
   const name = element({ id: "customerName", tagName: "INPUT", label: "Full name", value: "Mira Srinivasan" });
   const account = element({ id: "accountNumber", tagName: "INPUT", label: "Account No", value: "123456789012" });
   const duplicate = element({ id: "accountCopy", tagName: "INPUT", label: "Account No", value: "123456789012" });

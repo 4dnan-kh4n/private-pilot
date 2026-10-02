@@ -15,7 +15,7 @@ test("capture walks visible text and visible form values without reading locked 
   const doc = fakeDocument([label, visibleText, email, password, otp, hidden], [email, password, otp, hidden]);
   const result = capture(doc);
   assert.match(result.text, /Welcome to your account/);
-  assert.deepEqual(result.fields.map(field => field.label), ["Email", "Password", "one-time-code"]);
+  assert.deepEqual(result.fields.map(field => field.label), ["Email", "Password", "Unlabelled field"]);
   assert.equal(result.fields[0].value, "mira@example.in");
   assert.equal(result.fields[1].locked, true);
   assert.equal(result.fields[1].value, "");

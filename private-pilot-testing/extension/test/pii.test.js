@@ -58,6 +58,19 @@ test("labels determine specific kinds and secrets are hidden without placeholder
   assert.equal(detect("", "200000000009")?.kind, "AADHAAR");
 });
 
+test("label words require boundaries and typed labels validate their values", () => {
+  for (const word of ["Expand", "Company", "Japan", "Spanish"]) {
+    assert.equal(detect(word, "ordinary value"), null, `${word} must not be read as a PAN label`);
+    assert.equal(redactText(word, () => "PAN_1"), word);
+  }
+  assert.equal(redactText("PAN: ABCDE1234F", kind => `${kind}_1`), "PAN: PAN_1");
+  assert.equal(detect("PAN", "ABCDE123XF"), null);
+  assert.equal(detect("Mobile", "not a phone"), null);
+  assert.equal(detect("E-mail", "add your email"), null);
+  assert.equal(detect("PIN code", "12345"), null);
+  assert.equal(detect("Date of birth", "31/02/1990"), null);
+});
+
 test("outgoing guard allows placeholders and rejects detectable raw values", () => {
   assert.equal(assertSafePayload({ safeContext: "Email: EMAIL_1\nAccount: ACCOUNT_1\nMobile: MOBILE_1", question: "Summarize this" }), true);
   assert.throws(() => assertSafePayload({ safeContext: "Email: mira@example.in", question: "Help" }), /blocked a request/);
