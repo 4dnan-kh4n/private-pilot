@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PrivatePilot",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Locally detect and hide private details on webpages.",
   "icons": {
     "16": "icons/icon-16.png",
