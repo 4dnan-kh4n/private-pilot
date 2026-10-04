@@ -1,4 +1,5 @@
 (function registerPiiApi(root, factory) {
+  if (root.PrivatePilotPii) return;
   const api = factory();
   if (typeof module === "object") module.exports = api;
   root.PrivatePilotPii = api;
@@ -179,12 +180,5 @@
     }
     return true;
   }
-  async function sendSafeRequest(endpoint, payload, fetchImpl = fetch, knownPrivateValues = []) {
-    assertSafePayload(payload, knownPrivateValues);
-    return fetchImpl(endpoint, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload), cache: "no-store", credentials: "omit"
-    });
-  }
-  return { detect, luhn, verhoeff, redactText, assertSafePayload, sendSafeRequest, isCommonNamePart, patterns };
+  return { detect, luhn, verhoeff, redactText, assertSafePayload, isCommonNamePart, patterns };
 });

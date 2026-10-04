@@ -2,7 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 require("../capture.js");
 require("../pii.js");
-const { scan, start, snapshot, setManual, clear, applyAction } = require("../guard.js");
+const { scan, start, snapshot, review, setManual, clear } = require("../guard.js");
 const { element, textNode, fakeDocument, bankTable } = require("../test-support/dom-fixture");
 
 function page() {
@@ -17,6 +17,77 @@ function page() {
   document.getElementById = id => fields.find(field => field.id === id);
   return { document, name, account, duplicate, response };
 }
+
+test("local review lists ordinary page text and unmark survives repeated scans", () => {
+  clear();
+  const node = textNode("Contact: mira@example.test", element({ tagName: "P" }));
+  const document = fakeDocument([node]);
+  const first = review(document);
+  assert.equal(first.fields.length, 1);
+  const detail = first.fields[0];
+  assert.equal(detail.kind, "EMAIL");
+  assert.equal(detail.value, "Contact: mira@example.test");
+  assert.equal(first.protectedValues, 1);
+  assert.equal(setManual(detail.id, false), true);
+  assert.equal(review(document).fields[0].isPrivate, false);
+  scan(document);
+  assert.equal(node.nodeValue, "Contact: mira@example.test");
+  assert.equal(review(document).protectedValues, 0);
+  assert.equal(setManual(detail.id, true), true);
+  assert.equal(node.nodeValue, "Contact: EMAIL_1");
+  assert.equal(review(document).fields[0].isPrivate, true);
+  node.nodeValue = "Contact: new.person@example.test";
+  const changed = review(document);
+  assert.equal(changed.fields[0].value, "Contact: new.person@example.test");
+  assert.equal(node.nodeValue, "Contact: EMAIL_2");
+  clear();
+});
+
+test("local review is independent of outgoing-context validation and excludes removed page details", () => {
+  clear();
+  const name = element({ id: "name", label: "Name", value: "Ann" });
+  const offer = textNode("Annual offers", element({ tagName: "P" }));
+  const nodes = [name, offer];
+  const document = fakeDocument(nodes, [name]);
+  assert.equal(review(document).fields[0].kind, "PERSON");
+  assert.equal(offer.nodeValue, "Annual offers");
+  assert.throws(() => snapshot(document), /blocked context/);
+  assert.doesNotThrow(() => review(document));
+  nodes.shift();
+  assert.equal(review(document).fields.length, 0);
+  assert.equal(review(document).protectedValues, 0);
+  clear();
+});
+
+test("a label wrapping a secret control does not hide unrelated following text", () => {
+  clear();
+  const label = element({ tagName: "LABEL" }); label.textContent = "Password:";
+  const password = element({ id: "pass", label: "Password", type: "password" });
+  label.querySelector = () => password;
+  const parent = element({ tagName: "P" }); parent.previousElementSibling = label;
+  const order = textNode("Order reference: 123456789012", parent);
+  const document = fakeDocument([password, order], [password]);
+  review(document);
+  assert.equal(order.nodeValue, "Order reference: 123456789012");
+  clear();
+});
+
+test("unmark works for detected form values and locked secrets remain unread", () => {
+  clear();
+  const phone = element({ id: "phone", label: "Mobile", value: "9876543210" });
+  const password = element({ id: "password", label: "Password", type: "password" });
+  Object.defineProperty(password, "value", { get() { throw new Error("Never read a password"); } });
+  const document = fakeDocument([phone, password], [phone, password]);
+  assert.equal(review(document).fields.length, 2);
+  assert.equal(setManual("phone", false), true);
+  review(document); scan(document);
+  assert.equal(phone.value, "9876543210");
+  assert.equal(setManual("phone", true), true);
+  assert.equal(phone.value, "MOBILE_1");
+  assert.equal(setManual("password", false), false);
+  assert.equal(review(document).fields.find(field => field.id === "password").canUnmark, false);
+  clear();
+});
 
 test("generic page context redacts labelled text and fields, with stable placeholders", () => {
   clear();
@@ -45,14 +116,6 @@ test("manual marking, unmarking, and Clear restore local values", () => {
   setManual("accountNumber", true);
   clear();
   assert.equal(response.value, "I solve problems.");
-});
-
-test("approved fill actions resolve placeholders only inside the extension", () => {
-  clear();
-  const { document, name, response } = page();
-  scan(document);
-  assert.equal(applyAction(document, { type: "fill_field", fieldId: "hireReason", value: `I am ${name.value}.` }).ok, true);
-  assert.equal(response.value, "I am Mira Srinivasan.");
 });
 
 test("debounced observer redacts fields added after initial SPA load", async () => {

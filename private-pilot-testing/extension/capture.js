@@ -1,4 +1,5 @@
 (function registerCaptureApi(root, factory) {
+  if (root.PrivatePilotCapture) return;
   const api = factory();
   if (typeof module === "object") module.exports = api;
   root.PrivatePilotCapture = api;
@@ -99,6 +100,25 @@
     if (!originalTextSecurity.has(field)) originalTextSecurity.set(field, field.style.webkitTextSecurity || "");
     field.style.webkitTextSecurity = "disc";
   }
+  function isAuthenticationField(field) {
+    const autocomplete = String(field.getAttribute?.("autocomplete") || "");
+    const hint = `${field.name || ""} ${field.getAttribute?.("name") || ""} ${field.id || ""} ${labelFor(field)}`;
+    if (/(?:^|\s)username(?:\s|$)/i.test(autocomplete)
+      || /\b(?:username|user[-_ ]?(?:name|id)|login[-_ ]?(?:name|id))\b/i.test(hint)) return true;
+    const secretControls = 'input[type="password"], input[autocomplete~="current-password"], input[autocomplete~="new-password"], input[autocomplete~="one-time-code"]';
+    // Custom login components may have neither a FORM nor a dialog role.
+    if (/email|e-mail|phone|mobile|customer[-_ ]?id/i.test(hint) || /^(?:email|tel)$/i.test(field.type || "")) {
+      if (field.ownerDocument?.querySelector?.(secretControls)) return true;
+    }
+    const form = field.form || field.closest?.("form, [role='form'], [role='dialog']");
+    if (!form) return false;
+    // Preserve submitted controls in authentication forms, including email-first / OTP steps.
+    if (form.querySelector?.(secretControls)) return true;
+    const heading = form.querySelector?.("h1, h2, h3, [role='heading']")?.textContent || "";
+    const submit = form.querySelector?.('button[type="submit"], input[type="submit"]');
+    const formHint = `${form.getAttribute?.("action") || ""} ${form.id || ""} ${form.getAttribute?.("name") || ""} ${form.getAttribute?.("aria-label") || ""} ${heading} ${submit?.textContent || submit?.getAttribute?.("value") || ""}`;
+    return /\b(?:log[-_ ]?in|sign[-_ ]?in|auth(?:enticate|entication)?|session|register|sign[-_ ]?up)(?:[-_ ]?form)?\b/i.test(formHint);
+  }
   function walkRoots(documentRef, callback) {
     const seen = new Set();
     const visit = root => {
@@ -143,10 +163,11 @@
         if (node.ownerDocument) docs.add(node.ownerDocument);
         const label = labelFor(node);
         const locked = isNeverRead(node, label);
+        const authentication = !locked && isAuthenticationField(node);
         if (locked) maskSecret(node);
-        const value = locked ? "" : String(node.value ?? "").trim().slice(0, 1000);
-        if (value || label !== "Unlabelled field" || locked) {
-          const field = { label, value, type: node.type || node.tagName.toLowerCase(), id: node.id || "", locked, element: node };
+        const value = locked || authentication ? "" : String(node.value ?? "").trim().slice(0, 1000);
+        if (value || label !== "Unlabelled field" || locked || authentication) {
+          const field = { label, value, type: node.type || node.tagName.toLowerCase(), id: node.id || "", locked, authentication, element: node };
           fields.push(field);
           if (fields.length <= MAX_FIELDS) ordered.push({ type: "field", field });
         }
@@ -160,5 +181,5 @@
     field.style.webkitTextSecurity = originalTextSecurity.get(field);
     originalTextSecurity.delete(field);
   }
-  return { capture, isVisible, labelFor, tableContextFor, isNeverRead, isLabelingRestricted, walkRoots, restoreMask };
+  return { capture, isVisible, labelFor, tableContextFor, isNeverRead, isAuthenticationField, isLabelingRestricted, walkRoots, restoreMask };
 });

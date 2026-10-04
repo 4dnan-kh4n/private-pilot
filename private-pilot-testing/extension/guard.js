@@ -1,10 +1,12 @@
 (function registerGuardApi(root, factory) {
+  if (root.PrivatePilotGuard) return;
   const api = factory();
   if (typeof module === "object") module.exports = api;
   root.PrivatePilotGuard = api;
 })(globalThis, function createGuardApi() {
   const originals = new Map();
   const redactedNodes = new Map();
+  const textRecords = new Map();
   const fields = new Map();
   const fieldRecords = new Map();
   const overrides = new Map();
@@ -49,22 +51,38 @@
   function redactedText(raw, allowLabels = true) {
     return PrivatePilotPii.redactText(raw, (kind, value) => placeholderFor(kind, value), { allowLabels, personParts, personNames });
   }
-  function collect(documentRef) {
+  function collect(documentRef, includeContext = false) {
     const snapshot = PrivatePilotCapture.capture(documentRef);
+    const currentNodes = new Set(snapshot.textNodes);
+    const currentFields = new Set(snapshot.fields.map(field => field.element));
+    for (const [node, record] of textRecords) if (!currentNodes.has(node)) {
+      overrides.delete(record.id); textRecords.delete(node); originals.delete(node); redactedNodes.delete(node);
+    }
+    for (const [id, field] of fields) if (!currentFields.has(field.element)) {
+      fields.delete(id); fieldRecords.delete(id); overrides.delete(id);
+    }
     function processField(field) {
       const element = field.element;
       if (!element) return;
       const id = idFor(element); const label = PrivatePilotCapture.labelFor(element);
+      if (field.authentication) {
+        const record = fieldRecords.get(id);
+        if (record?.original && element.value === record.placeholder) element.value = record.original;
+        element.removeAttribute?.("data-privatepilot-redacted");
+        fields.delete(id); fieldRecords.delete(id); overrides.delete(id);
+        return;
+      }
       fields.set(id, { id, label, type: element.type || element.tagName?.toLowerCase() || "text", element });
       const priorRecord = fieldRecords.get(id);
-      if (priorRecord?.locked) return;
-      if (priorRecord && String(element.value || "") === priorRecord.placeholder) return;
       if (field.locked) {
         const autocomplete = String(element.getAttribute?.("autocomplete") || "").toLowerCase();
         const kind = /one-time-code|otp/.test(autocomplete) ? "OTP" : PrivatePilotPii.detect(label, "", field.type)?.kind || (/cc-|cvv|cvc/.test(`${autocomplete} ${label}`) ? "PASSWORD" : "PASSWORD");
         fieldRecords.set(id, { kind, locked: true });
         return;
       }
+      if (priorRecord?.locked) fieldRecords.delete(id);
+      else if (priorRecord && String(element.value || "") === priorRecord.placeholder) return;
+      if (overrides.get(id) === false) return;
       const detection = overrides.get(id) === true ? { kind: "PRIVATE", confidence: "User marked" } : PrivatePilotPii.detect(label, field.value, field.type);
       if (detection && field.value) {
         const placeholder = placeholderFor(detection.kind, field.value);
@@ -78,14 +96,17 @@
     }
     function processText(node) {
       const raw = node.nodeValue || "";
+      const previousRecord = textRecords.get(node);
+      if (previousRecord && overrides.get(previousRecord.id) === false && raw === previousRecord.original) return;
       const table = PrivatePilotCapture.tableContextFor(node.parentElement);
       if (table.isHeader) return;
       if (originals.has(node) && raw === redactedNodes.get(node)) return;
       // A site can reuse a text node when switching accounts or refreshing a balance.
-      originals.delete(node); redactedNodes.delete(node);
+      originals.delete(node); redactedNodes.delete(node); textRecords.delete(node);
+      if (previousRecord) overrides.delete(previousRecord.id);
       const parent = node.parentElement;
       const sibling = parent?.previousElementSibling;
-      const siblingLabel = sibling?.textContent || sibling?.innerText || "";
+      const siblingLabel = sibling?.querySelector?.("input, textarea, select") ? "" : sibling?.textContent || sibling?.innerText || "";
       let preceding = node.previousSibling;
       while (preceding?.nodeType === 3 && !String(preceding.nodeValue || "").trim()) preceding = preceding.previousSibling;
       const precedingLabel = preceding?.textContent || preceding?.nodeValue || "";
@@ -102,7 +123,13 @@
         const detection = !restricted && shortLabel && (semanticLabel || delimitedLabel) ? PrivatePilotPii.detect(siblingLabel, raw) : null;
         if (detection && raw.trim()) safe = raw.replace(raw.trim(), detection.neverRead ? "[HIDDEN]" : placeholderFor(detection.kind, raw.trim()));
       }
-      if (safe !== raw) { saveText(node, raw, safe); node.nodeValue = safe; }
+      if (safe !== raw) {
+        saveText(node, raw, safe);
+        const tokens = safe.match(/\b[A-Z]+_\d+\b/g) || [];
+        const kind = [...new Set(tokens.map(token => token.replace(/_\d+$/, "")))].join(", ") || "PRIVATE";
+        textRecords.set(node, { id: previousRecord?.id || `pp-text-${nextId++}`, label: table.label || (account ? siblingLabel || precedingLabel : kind), original: raw, placeholder: safe, kind });
+        node.nodeValue = safe;
+      }
     }
     const order = snapshot.ordered || [
       ...snapshot.fields.map(field => ({ type: "field", field })),
@@ -114,6 +141,7 @@
     }
     // Names found later in document order also protect earlier greetings and other visible mentions.
     for (const node of snapshot.textNodes) processText(node);
+    if (!includeContext) return snapshot;
     // Rebuild safe page text after DOM mutation; never send local original-value fields.
     const after = PrivatePilotCapture.capture(documentRef);
     const safeFields = after.fields.map(field => {
@@ -129,7 +157,7 @@
   }
   function scan(documentRef) { return collect(documentRef); }
   function snapshot(documentRef) {
-    const captured = collect(documentRef);
+    const captured = collect(documentRef, true);
     const originalText = [captured.textNodes.map(node => originals.get(node) ?? node.nodeValue ?? "").join("\n"), ...(captured.originalFields || [])].filter(Boolean).join("\n").slice(0, 50000);
     const safeText = captured.text.slice(0, 50000);
     for (const raw of placeholderToValue.values()) {
@@ -146,36 +174,60 @@
       })
     };
   }
+  function review(documentRef) {
+    collect(documentRef);
+    const detected = [...textRecords.values()].map(record => ({
+      id: record.id, label: record.label, kind: record.kind, value: record.original,
+      safeValue: record.placeholder, isPrivate: overrides.get(record.id) !== false, canUnmark: true
+    }));
+    for (const field of fields.values()) {
+      const record = fieldRecords.get(field.id);
+      if (!record && !overrides.has(field.id)) continue;
+      detected.push({ id: field.id, label: field.label, kind: record?.kind || "PRIVATE",
+        value: record?.locked ? "Never read" : record?.original || String(field.element.value || ""),
+        safeValue: record?.locked ? "[HIDDEN]" : record?.placeholder || "",
+        isPrivate: Boolean(record), canUnmark: !record?.locked });
+    }
+    return { fields: detected, protectedValues: status(documentRef), audit: auditTrail() };
+  }
   function setManual(id, isPrivate) {
+    const textEntry = [...textRecords].find(([, record]) => record.id === id);
+    if (textEntry) {
+      const [node, record] = textEntry;
+      const expected = overrides.get(id) === false ? record.original : record.placeholder;
+      if (node.nodeValue !== expected) return false;
+      overrides.set(id, isPrivate);
+      node.nodeValue = isPrivate ? record.placeholder : record.original;
+      recordAudit(isPrivate ? "Detail marked private" : "Detail unmarked");
+      return true;
+    }
     const field = fields.get(id); if (!field) return false;
+    if (fieldRecords.get(id)?.locked || PrivatePilotCapture.isAuthenticationField(field.element)) return false;
     overrides.set(id, isPrivate);
     if (!isPrivate) {
       const record = fieldRecords.get(id);
       if (record && !record.locked) { field.element.value = record.original; field.element.removeAttribute?.("data-privatepilot-redacted"); }
       fieldRecords.delete(id); return true;
     }
+    if (fieldRecords.has(id)) return true;
     const raw = String(field.element.value || "");
     if (!raw) return false;
-    const placeholder = placeholderFor("PRIVATE", raw); fieldRecords.set(id, { original: raw, placeholder, kind: "PRIVATE" }); field.element.value = placeholder;
+    const kind = PrivatePilotPii.detect(field.label, raw, field.type)?.kind || "PRIVATE";
+    const placeholder = placeholderFor(kind, raw); fieldRecords.set(id, { original: raw, placeholder, kind }); field.element.value = placeholder;
+    field.element.setAttribute?.("data-privatepilot-redacted", "true");
     return true;
   }
   function clear() {
     for (const [node, raw] of originals) if (node?.nodeValue === redactedNodes.get(node)) node.nodeValue = raw;
     for (const [id, record] of fieldRecords) { const field = fields.get(id); if (field && record.original) field.element.value = record.original; if (field) PrivatePilotCapture.restoreMask(field.element); field?.element.removeAttribute?.("data-privatepilot-redacted"); }
-    originals.clear(); redactedNodes.clear(); fields.clear(); fieldRecords.clear(); overrides.clear(); valueToPlaceholder.clear(); placeholderToValue.clear(); counters.clear(); personParts.clear(); personNames.clear(); visualRecords.clear(); recordAudit("Local context cleared");
+    originals.clear(); redactedNodes.clear(); textRecords.clear(); fields.clear(); fieldRecords.clear(); overrides.clear(); valueToPlaceholder.clear(); placeholderToValue.clear(); counters.clear(); personParts.clear(); personNames.clear(); visualRecords.clear(); recordAudit("Local context cleared");
   }
   function registerVisual(candidates) {
     return candidates.map(candidate => { const placeholder = placeholderFor(candidate.kind, candidate.raw); visualRecords.set(placeholder, { original: candidate.raw, kind: candidate.kind }); recordAudit(`Visual PII detected: ${candidate.kind}`); return { kind: candidate.kind, confidence: candidate.confidence, placeholder, bounds: candidate.bounds }; });
   }
-  function status(documentRef) { return documentRef.querySelectorAll?.("[data-privatepilot-redacted='true']").length || fieldRecords.size + originals.size; }
+  function status() { return fieldRecords.size + [...textRecords.values()].filter(record => overrides.get(record.id) !== false).length; }
   function auditTrail() { return [...audit]; }
-  function resolvePlaceholders(value) { let resolved = String(value || ""); for (const [placeholder, original] of placeholderToValue) resolved = resolved.replaceAll(placeholder, original); for (const [placeholder, record] of visualRecords) resolved = resolved.replaceAll(placeholder, record.original); return resolved; }
-  function applyAction(documentRef, action) {
-    if (action?.type !== "fill_field" || !["hireReason", "strongestSkills", "challengeSolved"].includes(action.fieldId) || typeof action.value !== "string" || action.value.length > 500) return { ok: false };
-    const field = documentRef.getElementById?.(action.fieldId); if (!field) return { ok: false };
-    field.value = resolvePlaceholders(action.value); field.dispatchEvent?.(new Event("input", { bubbles: true })); recordAudit("Approved action applied"); return { ok: true };
-  }
-  function start(documentRef) {
+  function start(documentRef, onChange = () => {}) {
     recordAudit("Local page scan started");
     let timer;
     const observers = new Map();
@@ -184,11 +236,12 @@
       timer = setTimeout(() => {
         const result = scan(documentRef);
         for (const doc of result.documents || []) if (!observers.has(doc)) observe(doc);
+        onChange();
       }, 150);
     };
     const observe = doc => {
       const observer = new MutationObserver(rescan);
-      observer.observe(doc.documentElement || doc, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["value", "placeholder", "aria-label", "autocomplete"] });
+      observer.observe(doc.documentElement || doc, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ["value", "type", "name", "action", "role", "placeholder", "aria-label", "autocomplete"] });
       doc.addEventListener?.("input", rescan, true);
       doc.addEventListener?.("change", rescan, true);
       observers.set(doc, observer);
@@ -197,5 +250,5 @@
     for (const doc of result.documents || [documentRef]) observe(doc);
     return { disconnect() { clearTimeout(timer); for (const observer of observers.values()) observer.disconnect(); observers.clear(); } };
   }
-  return { scan, start, status, snapshot, setManual, clear, registerVisual, auditTrail, resolvePlaceholders, applyAction };
+  return { scan, start, status, snapshot, review, setManual, clear, registerVisual, auditTrail };
 });

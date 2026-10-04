@@ -9,70 +9,31 @@
   <body>
     <main>
       <header class="brand">
-        <span class="shield" aria-hidden="true">✓</span>
+        <img class="brand-logo" src="privatepilot-logo.png" alt="" width="48" height="48">
         <div>
-          <p class="eyebrow">Privacy for browser AI</p>
+          <p class="eyebrow">Privacy in your browser</p>
           <h1>PrivatePilot</h1>
         </div>
       </header>
-
       <section class="status-card" aria-live="polite">
         <span class="status-dot" aria-hidden="true"></span>
         <div>
           <p class="status-label">Status</p>
-          <h2 id="status">Waiting for an approved page</h2>
-          <p id="siteMessage">Open an ordinary HTTP or HTTPS webpage, then click the PrivatePilot toolbar button to grant access for that site.</p>
+          <h2 id="status">Checking this page</h2>
+          <p id="siteMessage">Open a webpage and click the PrivatePilot toolbar button.</p>
         </div>
       </section>
-
+      <button id="analyseButton" type="button" disabled>Review local analysis</button>
       <section id="captureView" class="capture-card" hidden>
         <div class="capture-header">
-          <div>
-            <p class="eyebrow">Local context review</p>
-            <h2>Detected fields</h2>
-          </div>
-          <button id="clearButton" class="text-button" type="button">Clear</button>
+          <h2>Detected private details</h2>
         </div>
+        <p class="review-help">Unmark a detail to show it on the page again.</p>
         <dl id="fieldsList" class="fields-list"></dl>
-        <p class="preview-label">Original context · local only</p>
-        <pre id="originalPreview"></pre>
-        <p class="preview-label">Safe redacted context</p>
-        <pre id="contextPreview"></pre>
+        <p id="emptyMessage" hidden>No supported private details were detected on this page.</p>
       </section>
-
-      <section class="notice">
-        <p class="eyebrow">Phase 6</p>
-        <h2>Local-first by design</h2>
-        <p>PrivatePilot reads and redacts page context locally. Only the safe preview can be sent to the configured PrivatePilot assistant.</p>
-      </section>
-
-      <section class="assistant-card">
-        <p class="eyebrow">PrivatePilot assistant</p>
-        <label for="assistantQuestion">Ask using safe context</label>
-        <textarea id="assistantQuestion" rows="3" placeholder="Help me answer why should we hire you?"></textarea>
-        <button id="askButton" type="button" disabled>Ask PrivatePilot</button>
-        <p class="preview-label">Exact safe payload</p>
-        <pre id="safePayload">Review local context first.</pre>
-        <p id="assistantReply" class="assistant-reply" hidden></p>
-        <div id="actionControls" hidden>
-          <button id="approveAction" type="button">Approve &amp; fill</button>
-          <button id="rejectAction" class="secondary-button" type="button">Reject action</button>
-        </div>
-      </section>
-
-      <section class="audit-card">
-        <p class="eyebrow">Local audit trail</p>
-        <ol id="auditList"><li>Waiting for a page scan.</li></ol>
-      </section>
-
-      <button id="analyseButton" type="button" disabled>Review Local Context</button>
-      <button id="visualButton" class="secondary-button" type="button" disabled>Run Visual Scan</button>
-      <p id="visualStatus" class="helper">Visual scanning is off until you request it.</p>
-      <p class="helper" id="helper">Use Review Local Context to inspect the local scan. Browser-internal pages are not available to extensions.</p>
+      <p class="helper">Detection can miss details. Page changes cannot guarantee protection from another browser agent.</p>
     </main>
-    <script src="vendor/tesseract/tesseract.min.js"></script>
-    <script src="pii.js"></script>
-    <script src="visual.js"></script>
     <script src="sidepanel.js"></script>
   </body>
 </html>

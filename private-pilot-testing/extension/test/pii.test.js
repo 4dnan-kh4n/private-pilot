@@ -1,6 +1,6 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const { detect, luhn, redactText, assertSafePayload, sendSafeRequest } = require("../pii.js");
+const { detect, luhn, redactText, assertSafePayload } = require("../pii.js");
 
 test("detects Indian banking, identity and contact formats", () => {
   const cases = [
@@ -76,25 +76,6 @@ test("outgoing guard allows placeholders and rejects detectable raw values", () 
   assert.throws(() => assertSafePayload({ safeContext: "Email: mira@example.in", question: "Help" }), /blocked a request/);
   assert.throws(() => assertSafePayload({ safeContext: "Safe context", question: "My mobile is +91 98765 43210" }), /blocked a request/);
   assert.throws(() => assertSafePayload({ safeContext: "secret raw value", question: "help" }, ["secret raw value"]), /blocked a request/);
-});
-
-test("outgoing request never invokes fetch when raw PII is present", async () => {
-  let calls = 0;
-  const fetchSpy = async (_url, options) => { calls++; return { options }; };
-  await assert.rejects(sendSafeRequest("https://assistant.example.test/assist", {
-    safeContext: "Account number: 123456789012", question: "Summarize this"
-  }, fetchSpy), /blocked a request/);
-  assert.equal(calls, 0);
-  await assert.rejects(sendSafeRequest("https://assistant.example.test/assist", {
-    safeContext: "Safe", question: "May I use this?"
-  }, fetchSpy, ["May"]), /blocked a request/);
-  assert.equal(calls, 0);
-  const safe = await sendSafeRequest("https://assistant.example.test/assist", {
-    safeContext: "Account: ACCOUNT_1", question: "Summarize this"
-  }, fetchSpy);
-  assert.equal(calls, 1);
-  assert.equal(safe.options.credentials, "omit");
-  assert.doesNotMatch(safe.options.body, /123456789012/);
 });
 
 test("savings-account labels identify the entire number before generic digit patterns", () => {

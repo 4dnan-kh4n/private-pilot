@@ -1,4 +1,4 @@
-const CONTENT_FILES = ["capture.js", "pii.js", "guard.js", "visual-overlay.js", "content-script.js"];
+const CONTENT_FILES = ["capture.js", "pii.js", "guard.js", "content-script.js"];
 
 function enableActiveTabAction() {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
@@ -8,49 +8,44 @@ chrome.runtime.onStartup.addListener(enableActiveTabAction);
 
 async function injectForTab(tabId) {
   try {
-    const target = { tabId, allFrames: true };
-    await chrome.scripting.executeScript({ target, func: () => new Promise(resolve => {
-      const ready = () => typeof requestIdleCallback === "function" ? requestIdleCallback(() => resolve(), { timeout: 1000 }) : setTimeout(resolve, 0);
-      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready, { once: true });
-      else ready();
-    }) });
-    await chrome.scripting.executeScript({
-      target,
-      files: CONTENT_FILES
-    });
+    // Reuse the running scanner so repeated reviews cannot erase its local records.
+    try {
+      const status = await chrome.tabs.sendMessage(tabId, { type: "privatepilot:status" }, { frameId: 0 });
+      if (status?.ready) return { ok: true };
+    } catch { /* The new document needs its scanner installed. */ }
+    await chrome.scripting.executeScript({ target: { tabId }, files: CONTENT_FILES });
+    // A restricted embedded frame must not prevent review of the accessible main page.
+    try { await chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: CONTENT_FILES }); }
+    catch { /* Frames without site permission remain outside the scan. */ }
     return { ok: true };
   } catch (error) {
-    return { ok: false, error: error?.message || "PrivatePilot cannot access this page. Try an ordinary HTTP or HTTPS webpage." };
+    return { ok: false, error: error?.message || "Click the PrivatePilot toolbar button to allow access to this webpage." };
   }
+}
+
+function notifyPanel(tabId, result) {
+  chrome.runtime.sendMessage({
+    type: result.ok ? "privatepilot:injection-ready" : "privatepilot:injection-error",
+    tabId, ...(result.ok ? {} : { error: result.error })
+  }).catch(() => {});
 }
 
 chrome.action.onClicked.addListener(async tab => {
   if (!tab.id) return;
   const panelOpening = chrome.sidePanel.open({ tabId: tab.id }).catch(() => {});
-  const url = new URL(tab.url || "about:blank");
-  if (!/^https?:$/.test(url.protocol)) {
-    await panelOpening;
-    return;
-  }
-  // activeTab enables click-to-inject without permanent all-sites host access. Optional access
-  // to the current origin allows the user to keep protection available on later navigations.
-  let siteAccess = false;
-  try { siteAccess = await chrome.permissions.request({ origins: [`${url.origin}/*`] }); } catch { /* activeTab access can still permit this click. */ }
-  const result = await injectForTab(tab.id);
-  await panelOpening;
-  if (!result.ok) chrome.runtime.sendMessage({ type: "privatepilot:injection-error", tabId: tab.id, error: result.error }).catch(() => {});
-  else if (siteAccess) chrome.runtime.sendMessage({ type: "privatepilot:injection-ready", tabId: tab.id }).catch(() => {});
+  try {
+    const url = new URL(tab.url || "about:blank");
+    if (!/^https?:$/.test(url.protocol)) return;
+    // Ask only for this site's access, so later navigation can install the scanner again.
+    try { await chrome.permissions.request({ origins: [`${url.origin}/*`] }); }
+    catch { /* activeTab still permits this toolbar click when persistent access is declined. */ }
+    notifyPanel(tab.id, await injectForTab(tab.id));
+  } finally { await panelOpening; }
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type === "privatepilot:ensure-content-script") {
-    injectForTab(message.tabId).then(sendResponse);
-    return true;
-  }
-  if (message?.type !== "privatepilot:capture-visible") return;
-  chrome.tabs.captureVisibleTab(message.windowId, { format: "png" })
-    .then(dataUrl => sendResponse({ ok: true, dataUrl }))
-    .catch(error => sendResponse({ ok: false, error: error?.message || "Visible page capture failed." }));
+  if (message?.type !== "privatepilot:ensure-content-script") return;
+  injectForTab(message.tabId).then(sendResponse);
   return true;
 });
 
@@ -59,7 +54,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   try {
     const url = new URL(tab.url);
     if (!/^https?:$/.test(url.protocol)) return;
-    const hasSitePermission = await chrome.permissions.contains({ origins: [`${url.origin}/*`] });
-    if (hasSitePermission) await injectForTab(tabId);
-  } catch { /* The side panel will explain access failures when the user opens it. */ }
+    if (await chrome.permissions.contains({ origins: [`${url.origin}/*`] })) {
+      notifyPanel(tabId, await injectForTab(tabId));
+    }
+  } catch { /* The panel reports access failures without broadening site permissions. */ }
 });

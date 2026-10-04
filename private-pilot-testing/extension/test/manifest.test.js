@@ -2,57 +2,35 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
-const vm = require("node:vm");
 const extensionRoot = path.join(__dirname, "..");
 const projectRoot = path.join(extensionRoot, "..");
 const manifest = JSON.parse(fs.readFileSync(path.join(extensionRoot, "manifest.json"), "utf8"));
 
-test("Manifest V3 uses click-to-inject permissions and bundles OCR assets", () => {
+test("Manifest V3 keeps per-site permissions and required bundled assets", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions.sort(), ["activeTab", "scripting", "sidePanel"]);
   assert.deepEqual(manifest.optional_host_permissions, ["http://*/*", "https://*/*"]);
-  assert.deepEqual(manifest.host_permissions, ["http://localhost:3000/*"]);
+  assert.deepEqual(manifest.host_permissions, []);
   assert.equal(manifest.content_scripts, undefined);
-  assert.match(manifest.content_security_policy.extension_pages, /wasm-unsafe-eval/);
-  assert.ok(manifest.web_accessible_resources.some(item => item.resources.includes("vendor/tesseract/worker.min.js")));
   assert.equal(fs.existsSync(path.join(extensionRoot, "vendor", "tesseract", "lang", "eng.traineddata.gz")), true);
+  assert.equal(fs.existsSync(path.join(extensionRoot, "privatepilot-logo.png")), true);
   const worker = fs.readFileSync(path.join(extensionRoot, "service-worker.js"), "utf8");
   assert.match(worker, /allFrames:\s*true/);
   assert.doesNotMatch(worker, /matchAboutBlank/);
   assert.match(worker, /chrome\.permissions\.request/);
 });
 
-test("content-script recovery and side panel use the supported message flow", () => {
-  for (const file of ["pii.js", "guard.js", "capture.js", "visual.js", "visual-overlay.js", "service-worker.js", "content-script.js", "sidepanel.html", "sidepanel.js", "sidepanel.css"]) {
-    assert.equal(fs.existsSync(path.join(extensionRoot, file)), true, `${file} is missing`);
-  }
+test("panel uses local review without assistant, duplicate context or network requests", () => {
   const panel = fs.readFileSync(path.join(extensionRoot, "sidepanel.js"), "utf8");
+  const html = fs.readFileSync(path.join(extensionRoot, "sidepanel.html"), "utf8");
+  const content = fs.readFileSync(path.join(extensionRoot, "content-script.js"), "utf8");
   const pii = fs.readFileSync(path.join(extensionRoot, "pii.js"), "utf8");
-  assert.match(panel, /ASSISTANT_ENDPOINT/);
-  assert.match(pii, /credentials:\s*"omit"/);
-  assert.match(panel, /sendSafeRequest/);
-  assert.doesNotMatch(panel, /new URL\("\/api\/privatepilot\/assist",\s*activeTab\.url\)/);
-});
-
-test("a failed context review shows the safe error and disables stale assistant context", async () => {
-  const elements = new Map();
-  const sandbox = {
-    document: { querySelector(selector) {
-      if (!elements.has(selector)) elements.set(selector, { addEventListener() {} });
-      return elements.get(selector);
-    } },
-    chrome: { tabs: { query() {}, sendMessage: async () => ({ ok: false, error: "PrivatePilot blocked context containing a stored private value." }), onUpdated: { addListener() {} } } }
-  };
-  vm.createContext(sandbox);
-  const panel = fs.readFileSync(path.join(extensionRoot, "sidepanel.js"), "utf8");
-  vm.runInContext(panel, sandbox);
-  const result = vm.runInContext("activeTab = { id: 1 }; latestContext = { safeText: 'old context' }; pendingAction = { type: 'fill_field' }; refreshContext()", sandbox);
-  await assert.rejects(result, /blocked context containing a stored private value/);
-  assert.equal(elements.get("#askButton").disabled, true);
-  assert.equal(elements.get("#captureView").hidden, true);
-  assert.equal(elements.get("#actionControls").hidden, true);
-  assert.equal(vm.runInContext("latestContext", sandbox), undefined);
-  assert.equal(vm.runInContext("pendingAction", sandbox), undefined);
+  assert.match(panel, /privatepilot:review/);
+  assert.match(content, /PrivatePilotGuard\.review/);
+  assert.doesNotMatch(panel + html + pii, /ASSISTANT_ENDPOINT|sendSafeRequest|fetch\s*\(|PrivatePilot assistant|Phase 6|Safe redacted context|originalPreview|Run Visual Scan/);
+  assert.match(html, /src="privatepilot-logo\.png"/);
+  const css = fs.readFileSync(path.join(extensionRoot, "sidepanel.css"), "utf8");
+  assert.match(css, /\[hidden\]\s*\{\s*display:\s*none\s*!important/);
 });
 
 test("extension has no persistent private-value storage or raw-value console logging", () => {

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PrivatePilot fictional login check</title>
+  <style>
+    body { font: 18px system-ui; background: #f7f6f2; color: #251442; margin: 40px auto; max-width: 700px; padding: 24px; }
+    main { padding: 30px; background: #fff; border: 1px solid #ded9e6; border-radius: 20px; }
+    label { display: block; margin: 20px 0; }
+    input { display: block; margin-top: 8px; padding: 12px; width: 90%; font: inherit; }
+    button { padding: 12px 22px; background: #5a36a8; color: #fff; border: 0; border-radius: 25px; font: inherit; }
+    #result { color: #156958; font-weight: bold; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Fictional login check</h1>
+  <p>PrivatePilot is active. This page checks the submitted form locally.</p>
+  <p>Use demo.user@example.test and fake-password-42.</p>
+  <form id="signIn" action="/fake-login" method="post">
+    <label>Email <input id="loginEmail" name="email" type="email" autocomplete="username" required></label>
+    <label>Password <input id="loginPassword" name="password" type="password" autocomplete="current-password" required></label>
+    <button type="submit">Sign in</button>
+  </form>
+  <p id="result" role="status"></p>
+  <section id="profile" hidden>
+    <h2>Fictional account</h2>
+    <p>Name: Jordan Reed</p>
+    <p>Email: demo.user@example.test</p>
+  </section>
+</main>
+<script src="../extension/capture.js"></script>
+<script src="../extension/pii.js"></script>
+<script src="../extension/guard.js"></script>
+<script>
+  PrivatePilotGuard.start(document);
+  document.querySelector("#signIn").addEventListener("submit", event => {
+    event.preventDefault();
+    const submitted = new FormData(event.currentTarget);
+    const intact = submitted.get("email") === "demo.user@example.test" && submitted.get("password") === "fake-password-42";
+    document.querySelector("#result").textContent = intact
+      ? "Login check passed. The submitted email and password are unchanged."
+      : "Login check failed. The submitted credentials changed.";
+    if (intact) {
+      event.currentTarget.hidden = true;
+      document.querySelector("#profile").hidden = false;
+    }
+  });
+</script>
+</body>
+</html>

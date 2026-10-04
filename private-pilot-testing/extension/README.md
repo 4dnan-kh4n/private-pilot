@@ -1,47 +1,46 @@
 # PrivatePilot browser extension
 
-PrivatePilot is a local-first Manifest V3 prototype for reviewing webpage context before asking the controlled PrivatePilot assistant. On an ordinary HTTP or HTTPS page, it walks visible text nodes and form controls, masks detected values in the page, and keeps the temporary original-value map in the content script's memory. The map is discarded on a full page navigation/reload, when the tab or frame closes, or when the user selects **Clear**. It is never written to browser storage or logged.
+PrivatePilot checks webpage text locally and replaces detected private details on the page with labels. The side panel lists the detected details and lets you unmark a value or mark it private again. It does not call an AI service, send page text to a backend, or require the demo website to be running.
 
-The extension sends only its reviewed, redacted text and the user's question to the assistant endpoint configured by `ASSISTANT_ENDPOINT` in `sidepanel.js` (default: `http://localhost:3000/api/privatepilot/assist`). No webpage content, screenshot, OCR result, password, cookie, or placeholder map is sent to that endpoint. The local Node server rejects common unredacted patterns as a second check. Configure the endpoint host in `manifest.json` if you deploy the backend somewhere else.
+## Load or update
 
-## Load unpacked
+1. Open `chrome://extensions`, enable Developer mode and load this `extension` folder.
+2. For an existing installation, click Reload on the PrivatePilot extension.
+3. Reload the target webpage too. Close and reopen the PrivatePilot panel after updating.
+4. On a normal HTTP or HTTPS webpage, click the PrivatePilot toolbar button.
+5. Grant access to the current site when Chrome asks. This lets the extension resume after navigation on that site.
+6. Select **Review local analysis**. The list also refreshes when the tab, page or detected content changes.
+7. **Unmark** restores that detected value on the page. **Mark private** hides it again. Password and OTP controls remain masked and cannot be unmarked.
 
-1. Start the local assistant server from `private-pilot-testing` with `npm start` (MongoDB is needed only for the profile demo; the assistant endpoint can use local demo mode).
-2. Open `chrome://extensions` in Chrome or Chromium and turn on **Developer mode**.
-3. Choose **Load unpacked** and select this `extension` folder.
-4. Open a normal HTTP or HTTPS page, then click the PrivatePilot toolbar button.
-5. Grant access to the current site when Chrome asks. The extension injects into accessible frames and opens its side panel. Site access is optional and can be revoked in Chrome's extension settings.
-6. Choose **Review Local Context**. Check both previews; ask a question only after the safe preview looks right.
-7. To test image text, choose **Run Visual Scan**. Capture and OCR are local; the screenshot is held in memory and discarded after recognition.
+Only the current site origin is requested. A different site needs its own permission, granted through the toolbar button. The extension cannot access browser-internal pages, extension pages, the Chrome Web Store or other browser-protected pages.
 
-The extension does not run on `chrome://` pages, Chrome Web Store pages, extension pages, or other browser-protected documents. Injection uses `activeTab` after the toolbar click. The optional host permission is requested for the current origin so the extension can reinject after that site's navigation. Cross-origin frames require permission to their own origins; same-origin frames are scanned with the page. The assistant backend host has a separate narrow permission so a visit to an unrelated website does not redirect the assistant request to that website.
+## What is checked
 
-## Permissions
+Heuristic rules cover labelled names and addresses, email, Indian phone numbers, PAN, Aadhaar, IFSC, labelled 9–18 digit account numbers, validated payment card numbers, UPI IDs, PIN codes and dates of birth. The review includes detected ordinary page text as well as form fields. Values beneath table headings are matched to their own column.
 
-- `activeTab` — temporary access to the page the user selected by clicking the toolbar button.
-- `scripting` — inject the local scanner into the selected tab and its permitted frames.
-- `sidePanel` — present the local review, assistant, and approval controls.
-- `http://localhost:3000/*` host permission — contact the default local PrivatePilot assistant backend.
-- Optional `http://*/*` and `https://*/*` host access — allow the user to grant a site origin for reinjection after navigation. The extension does not request permanent access to every site at installation.
-- Web-accessible Tesseract worker, WebAssembly core, and English model — let the extension's local OCR worker load its bundled assets under Manifest V3. No CDN or runtime model download is used.
+Sign-in identity fields and controls in recognised authentication forms are not read or replaced. This preserves the credentials the website needs, including email-first and OTP login steps. Password, OTP and card security controls are never read. Their display is masked while preserving the page's underlying value. Other detected values can be replaced in displayed DOM text or non-authentication form controls.
 
-## Supported detection
+## Local data and permissions
 
-Heuristic rules cover email addresses; Indian phone numbers; PAN; Aadhaar; IFSC; labelled 9–18 digit account numbers; Luhn-checked payment card numbers; UPI IDs; labelled PIN codes; dates of birth; labelled names and addresses; and password, OTP, and card security fields. Password fields and controls identified by password/OTP/card autocomplete or labels are never read into the extension message and are visually masked. Values in ordinary text are detected by format and by nearby labels where possible. Identical detected values reuse one placeholder during the tab session.
+- `activeTab`: temporary access after the user selects the toolbar button.
+- `scripting`: install the scanner in the selected page and accessible frames.
+- `sidePanel`: show local analysis and mark/unmark controls.
+- Optional HTTP/HTTPS host permissions: access to the particular origin the user grants.
+- No mandatory backend host permission, assistant UI, network request helper or field-fill action.
 
-## Limitations and safe use
+Original values and replacement mappings stay in extension memory. They are not stored persistently, logged or uploaded. A full page reload/navigation or closing the tab discards them. Removed details disappear from the review when the page changes.
 
-- This is a prototype, not a guarantee that all sensitive information will be found. Unknown formats, image quality, OCR errors, language, unusual labels, or content assembled in inaccessible frames can cause misses or false positives. Review the safe preview before asking the assistant.
-- DOM text from open shadow roots and same-origin frames can be scanned. Closed shadow roots and cross-origin frames the user has not granted are restricted by browser security.
-- The visual scanner uses a local screenshot of the visible tab, so off-screen content is not scanned until it is visible. Browser restrictions or capture failures are shown in the panel. Screenshots and OCR output are not uploaded.
-- Dynamic pages are rescanned after DOM, text, attribute, input, and selection changes with a short debounce. A page can still change between review and an action.
-- Confirmed fill actions still target the demo's three application-answer fields. Generic page scanning and safe-context requests work without those demo controls; generic assistant-directed actions are not implemented.
-- The controlled local demo backend defaults to `localhost:3000`. If changing that endpoint for deployment, update the endpoint constant and matching host permission together. The server-side API key, if configured, stays on the server.
-- A page's own scripts and other extensions are outside this prototype's protection. Use fictional data in demos. Do not use this project as a substitute for a security review or a production privacy product.
+The older visual-scan source and bundled Tesseract assets remain in the folder for compatibility. Visual scanning is not exposed in the current panel.
 
-## Tests
+## Limits
 
-From `private-pilot-testing`, run:
+Detection can miss private details or flag an ordinary value. Review the page and use Unmark for false positives. Open shadow roots and same-origin frames are scanned. Closed shadow roots and frames without permission remain inaccessible. The list in the panel reviews the main page and accessible same-origin frames.
+
+Replacing visible page text does not intercept or control another browser AI product. A page's scripts, previously captured context and other sources of data remain outside this extension's control. Chrome cannot guarantee this scanner runs before another agent reads a page. Use fictional data for demonstrations.
+
+## Checks
+
+From `private-pilot-testing`:
 
 ```bash
 npm run test:extension
@@ -49,4 +48,4 @@ npm run check:extension
 npm test
 ```
 
-The offline fixtures under `test-fixtures/` contain fake bank-dashboard, registration, and dynamic SPA content. They do not contact a website.
+The automated checks cover capture, detected-detail review, persistent unmark choices, repeated injection, tab/page changes, stale responses, late-loading content and protected secret fields.
